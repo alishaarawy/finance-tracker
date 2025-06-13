@@ -1,0 +1,90 @@
+<script type="text/javascript">
+var gk_isXlsx = false;
+var gk_xlsxFileLookup = {};
+var gk_fileData = {};
+function filledCell(cell) {
+    return cell !== '' && cell != null;
+}
+function loadFileData(filename) {
+    if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+        try {
+            var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+            var firstSheetName = workbook.SheetNames[0];
+            var worksheet = workbook.Sheets[firstSheetName];
+            var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+            var filteredData = jsonData.filter(row => row.some(filledCell));
+            var headerRowIndex = filteredData.findIndex((row, index) =>
+                row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+            );
+            if (headerRowIndex === -1 || headerRowIndex > 25) {
+                headerRowIndex = 0;
+            }
+            var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
+            csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+            return csv;
+        } catch (e) {
+            console.error(e);
+            return "";
+        }
+    }
+    return gk_fileData[filename] || "";
+}
+</script>
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <h1 class="mb-4">{{ 'Edit' if price else 'Add' }} {{ 'Stock Price' if price and price.ticker else 'Mutual Fund NAV' if price else 'Price/NAV' }}</h1>
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">{{ 'Price' if price and price.ticker else 'NAV' if price else 'Price/NAV' }} Details</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('investment.add_price') if not price else url_for('investment.edit_price', id=price.id, investment_type='stock' if price and price.ticker else 'mutual_fund') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="investment_type" class="form-label">Investment Type</label>
+                        <select class="form-select" id="investment_type" name="investment_type" required>
+                            <option value="stock" {% if price and price.ticker %}selected{% endif %}>Stock</option>
+                            <option value="mutual_fund" {% if price and price.fund_name %}selected{% endif %}>Mutual Fund</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="identifier" class="form-label" id="identifier_label">{{ 'Ticker' if price and price.ticker else 'Fund Name' if price else 'Ticker/Fund Name' }}</label>
+                        <input type="text" class="form-control" id="identifier" name="{{ 'ticker' if price and price.ticker else 'fund_name' }}" value="{{ price.ticker if price and price.ticker else price.fund_name if price else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="price" class="form-label">Price/NAV (EGP)</label>
+                        <input type="number" step="0.01" class="form-control" id="price" name="price" value="{{ price.price if price and price.ticker else price.nav if price else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Date</label>
+                        <input type="date" class="form-control" id="date" name="date" value="{{ price.date.strftime('%Y-%m-%d') if price else '' }}" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">{{ 'Update' if price else 'Add' }} Price/NAV</button>
+                    <a href="{{ url_for('investment.prices') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const investmentTypeSelect = document.getElementById('investment_type');
+    const identifierLabel = document.getElementById('identifier_label');
+    const identifierInput = document.getElementById('identifier');
+
+    function updateIdentifierLabel() {
+        identifierLabel.textContent = investmentTypeSelect.value === 'stock' ? 'Ticker' : 'Fund Name';
+        identifierInput.name = investmentTypeSelect.value === 'stock' ? 'ticker' : 'fund_name';
+    }
+
+    investmentTypeSelect.addEventListener('change', updateIdentifierLabel);
+    updateIdentifierLabel();
+});
+</script>
+{% endblock %}

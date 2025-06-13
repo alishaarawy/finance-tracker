@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <title>Personal Finance Tracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.1/css/dataTables.bootstrap5.min.css">
+    <style>
+        .sidebar { position: sticky; top: 20px; }
+        .gradient-income { background: linear-gradient(135deg, #28a745, #81c784); }
+        .gradient-expense { background: linear-gradient(135deg, #dc3545, #e57373); }
+        .gradient-balance { background: linear-gradient(135deg, #007bff, #64b5f6); }
+        .gradient-exchange { background: linear-gradient(135deg, #6f42c1, #a78bfa); }
+        .gradient-gold { background: linear-gradient(135deg, #ffc107, #ffd54f); }
+        .gradient-inflation { background: linear-gradient(135deg, #fd7e14, #ffab91); }
+        .dashboard-stat { margin-bottom: 0; }
+        .dashboard-label { margin-bottom: 0; font-size: 0.9rem; }
+        .stat-card { transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1);}
+        .chart-container {position: relative; margin: auto;}
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <nav class="col-md-3 col-lg-2 bg-light sidebar py-4">
+                <div class="sidebar-sticky">
+                    <h3 class="px-3 mb-4">Personal Finance Tracker</h3>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('index') }}">
+                                <i class="fas fa-tachometer-alt"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="collapse" data-bs-target="#incomeSubmenu">
+                                <i class="fas fa-money-bill-wave"></i> Income
+                            </a>
+                            <div class="collapse" id="incomeSubmenu">
+                                <ul class="nav flex-column ms-3">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('income.index') }}">View Income</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('income.add') }}">Add Income</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="collapse" data-bs-target="#expenseSubmenu">
+                                <i class="fas fa-shopping-cart"></i> Expenses
+                            </a>
+                            <div class="collapse" id="expenseSubmenu">
+                                <ul class="nav flex-column ms-3">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('expense.index') }}">Expenses</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('expense.add') }}">Add Expense</a>
+                                    </li>
+
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('expense.categories') }}">Manage 
+Categories</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="collapse" data-bs-target="#goldSubmenu">
+                                <i class="fas fa-coins"></i> Gold
+                            </a>
+                            <div class="collapse" id="goldSubmenu">
+                                <ul class="nav flex-column ms-3">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('gold.index') }}">Gold Dashboard</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('gold.transactions') }}">Transactions</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('gold.prices') }}">Gold Prices</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="collapse" data-bs-target="#investmentSubmenu">
+                                <i class="fas fa-chart-line"></i> Investments
+                            </a>
+                            <div class="collapse" id="investmentSubmenu">
+                                <ul class="nav flex-column ms-3">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('investment.index') }}">Investment Dashboard</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('investment.transactions') }}">Transactions</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('investment.prices') }}">Prices/NAVs</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="collapse" data-bs-target="#exchangeSubmenu">
+                                <i class="fas fa-exchange-alt"></i> Exchange Rates
+                            </a>
+                            <div class="collapse" id="exchangeSubmenu">
+                                <ul class="nav flex-column ms-3">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('exchange.index') }}">View Rates</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('exchange.add') }}">Add Rate</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="collapse" data-bs-target="#inflationSubmenu">
+                                <i class="fas fa-chart-line"></i> Inflation
+                            </a>
+                            <div class="collapse" id="inflationSubmenu">
+                                <ul class="nav flex-column ms-3">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('inflation.index') }}">View Inflation</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('inflation.add') }}">Add Inflation Data</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="collapse" data-bs-target="#savingsSubmenu">
+                                <i class="fas fa-piggy-bank"></i> Savings
+                            </a>
+                            <div class="collapse" id="savingsSubmenu">
+                                <ul class="nav flex-column ms-3">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('savings.index') }}">View Savings</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('savings.goals') }}">Savings Goals</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('savings.add') }}">Add Saving</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('savings.add_goal') }}">Add Goal</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('import.index') }}">
+                                <i class="fas fa-file-import"></i> Import Data
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <div class="d-flex align-items-center">
+        <div class="me-3">
+            <h4 class="mb-0">
+                <span class="badge bg-primary" id="durationBadge">
+                    <i class="fas fa-calendar-alt me-2"></i>
+                    <span id="durationText">N/A</span>
+                </span>
+            </h4>
+        </div>
+        <form class="row row-cols-lg-auto g-3 align-items-center">
+            <div class="col-12">
+                <label class="visually-hidden" for="start_date">Start Date</label>
+                <div class="input-group">
+                    <div class="input-group-text">From</div>
+                    <input type="date" class="form-control" id="start_date" name="start_date">
+                </div>
+            </div>
+            <div class="col-12">
+                <label class="visually-hidden" for="end_date">End Date</label>
+                <div class="input-group">
+                    <div class="input-group-text">To</div>
+                    <input type="date" class="form-control" id="end_date" name="end_date">
+                </div>
+            </div>
+            <div class="col-12">
+                <button type="button" class="btn btn-primary" onclick="applyFilter()">
+                    <i class="fas fa-filter me-1"></i> Apply
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="resetFilter()">
+                    <i class="fas fa-undo me-1"></i> Reset
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+                {% endif %}
+                {% endwith %}
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <footer class="bg-light text-center py-3 mt-4">
+        Personal Finance Tracker © 2025
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.1/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    // Global function to calculate and display duration
+    function calculateAndDisplayDuration(startDate, endDate) {
+        if (!startDate || !endDate) {
+            document.getElementById('durationText').textContent = 'N/A';
+            return;
+        }
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        // Calculate difference
+        const diff = new Date(end - start);
+        const years = diff.getUTCFullYear() - 1970;
+        const months = diff.getUTCMonth();
+        const days = diff.getUTCDate() - 1;
+        
+        // Format duration string
+        let durationParts = [];
+        if (years > 0) durationParts.push(`${years} Year${years > 1 ? 's' : ''}`);
+        if (months > 0) durationParts.push(`${months} Month${months > 1 ? 's' : ''}`);
+        if (days > 0 || durationParts.length === 0) durationParts.push(`${days} Day${days > 1 ? 's' : ''}`);
+        
+        document.getElementById('durationText').textContent = durationParts.join(' ');
+    }
+
+    function applyFilter() {
+        const startDate = document.getElementById('start_date').value;
+        const endDate = document.getElementById('end_date').value;
+        
+        // Calculate and display duration
+        calculateAndDisplayDuration(startDate, endDate);
+        
+        // Store dates in session storage to maintain across pages
+        sessionStorage.setItem('filterStartDate', startDate);
+        sessionStorage.setItem('filterEndDate', endDate);
+        
+        const queryString = new URLSearchParams({ 
+            start_date: startDate, 
+            end_date: endDate 
+        }).toString();
+        
+        if (typeof window.loadData === 'function') {
+            window.loadData(queryString);
+        } else {
+            // Fallback for pages without loadData function
+            window.location.search = queryString;
+        }
+    }
+
+    function resetFilter() {
+        // Set default dates (Jan 1, 2019 to today)
+        const today = new Date().toISOString().split('T')[0];
+        const defaultStart = '2019-01-01';
+        
+        document.getElementById('start_date').value = defaultStart;
+        document.getElementById('end_date').value = today;
+        
+        // Calculate and display duration for default range
+        calculateAndDisplayDuration(defaultStart, today);
+        
+        // Store default dates in session storage
+        sessionStorage.setItem('filterStartDate', defaultStart);
+        sessionStorage.setItem('filterEndDate', today);
+        
+        if (typeof window.loadData === 'function') {
+            window.loadData(`start_date=${defaultStart}&end_date=${today}`);
+        } else {
+            // Update URL with default range
+            window.location.search = `?start_date=${defaultStart}&end_date=${today}`;
+        }
+    }
+
+    // Initialize filters on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date().toISOString().split('T')[0];
+        const defaultStart = '2019-01-01';
+        
+        // Try to get saved dates from session storage
+        const savedStart = sessionStorage.getItem('filterStartDate');
+        const savedEnd = sessionStorage.getItem('filterEndDate');
+        
+        // Set date inputs (use saved values if available, otherwise defaults)
+        document.getElementById('start_date').value = savedStart || defaultStart;
+        document.getElementById('end_date').value = savedEnd || today;
+        
+        // Calculate and display duration
+        calculateAndDisplayDuration(
+            savedStart || defaultStart,
+            savedEnd || today
+        );
+        
+        // Apply filter if loadData function exists
+        if (typeof window.loadData === 'function') {
+            const queryString = new URLSearchParams({
+                start_date: savedStart || defaultStart,
+                end_date: savedEnd || today
+            }).toString();
+            window.loadData(queryString);
+        }
+    });
+</script>
+    <script src="/static/js/utils.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

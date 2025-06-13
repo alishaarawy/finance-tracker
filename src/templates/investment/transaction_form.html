@@ -1,0 +1,221 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<!-- Main content block for transaction form -->
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <!-- Page header indicating Add/Edit, Stock/Mutual Fund, Buy/Sell -->
+        <h1 class="mb-4">
+            {{ 'Edit' if transaction else 'Add' }} 
+            {{ 'Stock' if is_stock else 'Mutual Fund' }} 
+            {{ 'Buy' if is_buy else 'Sell' }} Transaction
+        </h1>
+        <div class="card">
+            <!-- Card header for styling -->
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Transaction Details</h5>
+            </div>
+            <div class="card-body">
+                <!-- Form submits to appropriate endpoint based on id and type -->
+                <form method="POST" action="{{ url_for('investment.transaction_form_with_id', id=transaction.id, type='stock_buy' if is_stock and is_buy else 'stock_sell' if is_stock else 'fund_buy' if is_buy else 'fund_sell') if transaction else url_for('investment.transaction_form', type='stock_buy' if is_stock and is_buy else 'stock_sell' if is_stock else 'fund_buy' if is_buy else 'fund_sell') }}">
+                    <!-- CSRF token for security -->
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <!-- Security Type dropdown -->
+                    <div class="mb-3">
+                        <label for="security_type" class="form-label">Security Type</label>
+                        <select class="form-select" id="security_type" name="security_type" required>
+                            <option value="stock" {% if security_type == 'stock' %}selected{% endif %}>Stock</option>
+                            <option value="fund" {% if security_type == 'fund' %}selected{% endif %}>Mutual Fund</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Identifier field (Ticker or Fund Name) -->
+                    <div class="mb-3">
+                        <label for="identifier" class="form-label" id="identifier_label">
+                            {{ 'Ticker' if is_stock else 'Fund Name' }}
+                        </label>
+                        <input type="text" class="form-control" id="identifier" 
+                               name="{{ 'ticker' if is_stock else 'fund_name' }}" 
+                               value="{{ transaction.ticker if is_stock and transaction else transaction.fund_name if transaction else '' }}" 
+                               required>
+                    </div>
+                    
+                    <!-- Quantity field (Shares or Units) -->
+                    <div class="mb-3">
+                        <label for="quantity" class="form-label">
+                            {{ 'Shares' if is_stock else 'Units' }}
+                        </label>
+                        <input type="number" step="any" class="form-control" id="quantity" 
+                               name="quantity" 
+                               value="{{ transaction.quantity if is_stock and transaction else transaction.units if transaction else '' }}" 
+                               required>
+                    </div>
+                    
+                    <!-- Price field (Purchase/Sell Price per Share/Unit) -->
+                    <div class="mb-3">
+                        <label for="price" class="form-label">
+                            {{ 'Purchase Price' if is_buy else 'Sell Price' }} per 
+                            {{ 'Share' if is_stock else 'Unit' }} (EGP)
+                        </label>
+                        <input type="number" step="any" class="form-control" id="price" 
+                               name="price" 
+                               value="{{ transaction.purchase_price if is_stock and is_buy and transaction else transaction.sell_price if is_stock and not is_buy and transaction else transaction.purchase_nav if not is_stock and is_buy and transaction else transaction.sell_nav if transaction else '' }}" 
+                               required>
+                    </div>
+                    
+                    <!-- Date field -->
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Date</label>
+                        <input type="date" class="form-control" id="date" 
+                               name="date" 
+                               value="{{ transaction.date.strftime('%Y-%m-%d') if transaction else '' }}" 
+                               required>
+                    </div>
+                    
+                    <!-- Description field (optional) -->
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="description" 
+                                  name="description" rows="3">
+                            {{ transaction.description if transaction else '' }}
+                        </textarea>
+                    </div>
+                    
+                    <!-- Fees display section -->
+                    <div class="mb-3" id="fees_section">
+                        <h6>Transaction Fees</h6>
+                        <div class="card bg-light p-3">
+                            <!-- Stock-specific fees (hidden for mutual funds) -->
+                            <div id="stock_fees" style="display: none;">
+                                <p>EGX Fee: <span id="egx_fee">EGP 0.00</span></p>
+                                <p>MCDR Fee: <span id="mcdr_fee">EGP 0.00</span></p>
+                                <p>FRA Fee: <span id="fra_fee">EGP 0.00</span></p>
+                                <p>Risk Insurance Fee: <span id="risk_insurance_fee">EGP 0.00</span></p>
+                            </div>
+                            <p>Brokerage Order Fee: <span id="brokerage_order_fee">EGP 0.00</span></p>
+                            <p>Brokerage Custody Fee: <span id="brokerage_custody_fee">EGP 0.00</span></p>
+                            <p><strong>Total Fees: <span id="total_fees">EGP 0.00</strong></span></p>
+                            <p>
+                                <strong>
+                                    {{ 'Average Price per Share (incl. fees)' if is_buy else 'Net Sell Value (after fees)' }}: 
+                                    <span id="avg_price">EGP 0.00</span>
+                                </strong>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Form buttons -->
+                    <button type="submit" class="btn btn-primary">
+                        {{ 'Update' if transaction else 'Add' }} Transaction
+                    </button>
+                    <a href="{{ url_for('investment.transactions') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize form behavior on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // DOM elements
+        const securityTypeSelect = document.getElementById('security_type');
+        const identifierLabel = document.getElementById('identifier_label');
+        const identifierInput = document.getElementById('identifier');
+        const quantityLabel = document.getElementById('quantity').previousElementSibling;
+        const priceLabel = document.getElementById('price').previousElementSibling;
+        const feesSection = document.getElementById('fees_section');
+        const stockFees = document.getElementById('stock_fees');
+        const quantityInput = document.getElementById('quantity');
+        const priceInput = document.getElementById('price');
+
+        // Update form labels and fees based on security type
+        function updateLabelsAndFees() {
+            const isStock = securityTypeSelect.value === 'stock';
+            // Update labels for Ticker/Fund Name, Shares/Units, Price
+            identifierLabel.textContent = isStock ? 'Ticker' : 'Fund Name';
+            identifierInput.name = isStock ? 'ticker' : 'fund_name';
+            quantityLabel.textContent = isStock ? 'Shares' : 'Units';
+            priceLabel.textContent = `{{ 'Purchase Price' if is_buy else 'Sell Price' }} per ${isStock ? 'Share' : 'Unit'} (EGP)`;
+            // Show/hide stock-specific fees
+            stockFees.style.display = isStock ? 'block' : 'none';
+            feesSection.style.display = 'block';
+            updateFees();
+        }
+
+        // Fetch and display transaction fees
+        function updateFees() {
+            const quantity = parseFloat(quantityInput.value) || 0;
+            const price = parseFloat(priceInput.value) || 0;
+            const totalValue = quantity * price;
+            const investmentType = securityTypeSelect.value === 'stock' ? 'stock' : 'fund';
+
+            if (totalValue > 0) {
+                fetch('/investment/api/calculate-fees', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ total_value: totalValue, investment_type: investmentType })
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.error) {
+                        console.error('Error calculating fees:', data.error);
+                        resetFeeDisplays();
+                        return;
+                    }
+                    // Update fee displays
+                    document.getElementById('egx_fee').textContent = `EGP ${data.egx_fee.toFixed(2)}`;
+                    document.getElementById('mcdr_fee').textContent = `EGP ${data.mcdr_fee.toFixed(2)}`;
+                    document.getElementById('fra_fee').textContent = `EGP ${data.fra_fee.toFixed(2)}`;
+                    document.getElementById('risk_insurance_fee').textContent = `EGP ${data.risk_insurance_fee.toFixed(2)}`;
+                    document.getElementById('brokerage_order_fee').textContent = `EGP ${data.brokerage_order_fee.toFixed(2)}`;
+                    document.getElementById('brokerage_custody_fee').textContent = `EGP ${data.brokerage_custody_fee.toFixed(2)}`;
+                    document.getElementById('total_fees').textContent = `EGP ${data.total_fees.toFixed(2)}`;
+                    // Calculate average price (buy) or net sell value (sell)
+                    {% if is_buy %}
+                    const avgPrice = quantity > 0 ? (totalValue + data.total_fees) / quantity : 0;
+                    document.getElementById('avg_price').textContent = `EGP ${avgPrice.toFixed(2)}`;
+                    {% else %}
+                    const netSellValue = totalValue - data.total_fees;
+                    document.getElementById('avg_price').textContent = `EGP ${netSellValue.toFixed(2)} (Net Sell Value)`;
+                    {% endif %}
+                })
+                .catch(error => {
+                    console.error('Error fetching fees:', error);
+                    resetFeeDisplays();
+                });
+            } else {
+                resetFeeDisplays();
+            }
+        }
+
+        // Reset fee displays to zero
+        function resetFeeDisplays() {
+            document.getElementById('egx_fee').textContent = `EGP 0.00`;
+            document.getElementById('mcdr_fee').textContent = `EGP 0.00`;
+            document.getElementById('fra_fee').textContent = `EGP 0.00`;
+            document.getElementById('risk_insurance_fee').textContent = `EGP 0.00`;
+            document.getElementById('brokerage_order_fee').textContent = `EGP 0.00`;
+            document.getElementById('brokerage_custody_fee').textContent = `EGP 0.00`;
+            document.getElementById('total_fees').textContent = `EGP 0.00`;
+            document.getElementById('avg_price').textContent = `EGP 0.00{% if not is_buy %} (Net Sell Value){% endif %}`;
+        }
+
+        // Event listeners for dynamic updates
+        securityTypeSelect.addEventListener('change', updateLabelsAndFees);
+        quantityInput.addEventListener('input', updateFees);
+        priceInput.addEventListener('input', updateFees);
+        // Initial update on page load
+        updateLabelsAndFees();
+    });
+</script>
+{% endblock %}

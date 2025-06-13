@@ -1,0 +1,65 @@
+
+
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Edit Transaction</h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title">Edit Buy Transaction</h5>
+            </div>
+            <div class="card-body">
+                <divform action="{{ url_for('gold.edit_transaction', id=transaction.id)}}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <div class="form-group mb-3">
+                            <label for="weight" class="form-label">Weight (grams)</label>
+                            <input type="number" name="weight" class="form-control" id="weight" name="weight" value="{{ transaction.weight }}" min="0.01" step="0.01" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-group mb-1">
+                            <label for="karat" class="form-label">Karat</label>
+                            <select class="form-select" name="id="karat" name="karat" required>
+                                <option value="24" {% if transaction.karat == 24 %}selected{% endif %}>24K</option>
+                                <option value="21" {% if transaction.karat == 21 %}selected{% endif %}>21K</option>
+                                <option value="18" {% if transaction.karat == 18 %}selected{% endif %}>18K</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-group mb-1">
+                            <label for="purchase_price" class="form-label">Purchase Price per Gram (EGP)</label>
+                            <input type="number" name="purchase_price" class="form-control" id="purchase_price" name="purchase_price" value="{{ transaction.purchase_price }}" min="0" step="0.01" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-group mb-1">
+                            <label for="date" class="form-label">Date</label>
+                            <input type="date" name="date" class="form-control" id="date" name="date" value="{{ transaction.date.strftime('%Y-%m-%d') }}" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-group mb-1">
+                            <label for="description" class="form-label">Description</label>
+                            <input type="text" name="description" class="form-control" id="description" name="description" value="{{ transaction.description or '' }}">
+                        </div>
+                    </div>
+                    <divbutton type="submit" class="btn btn-primary">Update Transaction</button>
+                    <a href="{{ url_for('gold.transactions') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+

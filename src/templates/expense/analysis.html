@@ -1,0 +1,389 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script>{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Expense Analysis</h1>
+        <div class="card mb-4">
+            <div class="card-header gradient-expense text-white">
+                <h5 class="mb-0">Filter Expenses</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label for="itemSelect" class="form-label">Select Item</label>
+                        <select class="form-select" id="itemSelect">
+                            <option value="">Select an item</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="categoryFilter" class="form-label">Category</label>
+                        <select class="form-select" id="categoryFilter">
+                            <option value="">All Categories</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="dateRange" class="form-label">Date Range</label>
+                        <input type="text" class="form-control" id="dateRange" placeholder="Select date range">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" id="analysisResults" style="display: none;">
+            <div class="card-header gradient-expense text-white">
+                <h5 class="mb-0">Analysis for <span id="itemName"></span></h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Max Price</h6>
+                                <p class="dashboard-stat" id="maxPrice">-</p>
+                                <small class="text-muted" id="maxPriceDate"></small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Min Price</h6>
+                                <p class="dashboard-stat" id="minPrice">-</p>
+                                <small class="text-muted" id="minPriceDate"></small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Total Spent</h6>
+                                <p class="dashboard-stat" id="totalSpent">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Average Monthly</h6>
+                                <p class="dashboard-stat" id="avgMonthly">-</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">Price Trend</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container" style="height: 300px;">
+                                    <canvas id="priceTrendChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">Inflation Rate</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container" style="height: 300px;">
+                                    <canvas id="inflationChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">Category Trends</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container" style="height: 300px;">
+                                    <canvas id="categoryTrendsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
+
+<script>
+function formatCurrency(value) {
+    return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(value);
+}
+
+function generateRandomColors(count) {
+    const colors = [];
+    for (let i = 0; i < count; i++) {
+        const r = Math.floor(Math.random() * 200);
+        const g = Math.floor(Math.random() * 200);
+        const b = Math.floor(Math.random() * 200);
+        colors.push(`rgba(${r}, ${g}, ${b}, 0.6)`);
+    }
+    return colors;
+}
+
+$(document).ready(function() {
+    $("#dateRange").flatpickr({
+        mode: "range",
+        dateFormat: "Y-m-d",
+        onChange: function(selectedDates) {
+            if (selectedDates.length === 2) {
+                loadAnalysisData();
+            }
+        }
+    });
+
+    $('#categoryFilter').change(function() {
+        const categoryId = $(this).val();
+        $.get(`/expense/api/items?category_id=${categoryId}`, function(data) {
+            const itemSelect = $('#itemSelect');
+            itemSelect.empty().append('<option value="">Select an item</option>');
+            data.items.forEach(item => {
+                itemSelect.append(`<option value="${item}">${item}</option>`);
+            });
+        }).fail(function(xhr) {
+            alert('Error loading items: ' + (xhr.responseJSON?.error || 'Unknown error'));
+        });
+    });
+
+    $('#itemSelect').change(function() {
+        loadAnalysisData();
+    });
+
+    function loadAnalysisData() {
+        const itemName = $('#itemSelect').val();
+        if (!itemName) {
+            $('#analysisResults').hide();
+            return;
+        }
+
+        const dateRange = $('#dateRange').val().split(' to ');
+        const categoryId = $('#categoryFilter').val();
+        const queryString = new URLSearchParams({
+            start_date: dateRange[0] || '',
+            end_date: dateRange[1] || '',
+            category_id: categoryId || ''
+        }).toString();
+
+        $.get(`/expense/api/item_analysis/${encodeURIComponent(itemName)}?${queryString}`, function(data) {
+            $('#itemName').text(itemName);
+            $('#maxPrice').text(formatCurrency(data.max_price?.amount || 0));
+            $('#maxPriceDate').text(data.max_price?.date ? new Date(data.max_price.date).toLocaleDateString() : 'N/A');
+            $('#minPrice').text(formatCurrency(data.min_price?.amount || 0));
+            $('#minPriceDate').text(data.min_price?.date ? new Date(data.min_price.date).toLocaleDateString() : 'N/A');
+            $('#totalSpent').text(formatCurrency(data.total_spent || 0));
+            $('#avgMonthly').text(formatCurrency(data.avg_monthly || 0));
+            updatePriceTrendChart(data.price_trend);
+            updateInflationChart(data.inflation);
+
+            $.get(`/expense/api/category_trends?${queryString}`, function(trends) {
+                updateCategoryTrendsChart(trends, categoryId);
+            }).fail(function(xhr) {
+                alert('Error loading category trends: ' + (xhr.responseJSON?.error || 'Unknown error'));
+            });
+
+            $('#analysisResults').show();
+        }).fail(function(xhr) {
+            alert('Error loading analysis: ' + (xhr.responseJSON?.error || 'Unknown error'));
+            $('#analysisResults').hide();
+        });
+    }
+
+    function updatePriceTrendChart(data) {
+        const labels = data.map(item => new Date(item.date).toLocaleDateString());
+        const amounts = data.map(item => item.amount);
+
+        const ctx = document.getElementById('priceTrendChart').getContext('2d');
+        if (window.priceTrendChart) {
+            window.priceTrendChart.destroy();
+        }
+
+        window.priceTrendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Price (EGP)',
+                    data: amounts,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: { display: true, text: 'Price Trend' },
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        ticks: { callback: value => formatCurrency(value) }
+                    },
+                    x: { title: { display: true, text: 'Date' } }
+                }
+            }
+        });
+    }
+
+    function updateInflationChart(data) {
+        const labels = data.map(item => item.period);
+        const values = data.map(item => item.inflation);
+
+        const ctx = document.getElementById('inflationChart').getContext('2d');
+        if (window.inflationChart) {
+            window.inflationChart.destroy();
+        }
+
+        window.inflationChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Inflation Rate (%)',
+                    data: values,
+                    backgroundColor: values.map(v => v > 0 ? 'rgba(255, 99, 132, 0.7)' : 'rgba(54, 162, 235, 0.7)'),
+                    borderColor: values.map(v => v > 0 ? 'rgba(255, 99, 132, 1)' : 'rgba(54, 162, 235, 1)'),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: { display: true, text: 'Inflation Rate' },
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: value => value + '%' },
+                        title: { display: true, text: 'Inflation (%)' }
+                    },
+                    x: { title: { display: true, text: 'Period' } }
+                }
+            }
+        });
+    }
+
+    function updateCategoryTrendsChart(trends, categoryId) {
+        const ctx = document.getElementById('categoryTrendsChart').getContext('2d');
+        if (window.categoryTrendsChart) {
+            window.categoryTrendsChart.destroy();
+        }
+
+        let categories = Object.keys(trends);
+        if (categoryId) {
+            const selectedCategory = $('#categoryFilter option:selected').text();
+            categories = categories.filter(cat => cat === selectedCategory);
+        }
+
+        const allMonths = new Set();
+        categories.forEach(cat => {
+            Object.keys(trends[cat]).forEach(month => allMonths.add(month));
+        });
+        const sortedMonths = Array.from(allMonths).sort();
+        const labels = sortedMonths.map(month => {
+            const [year, monthNum] = month.split('-');
+            return new Date(year, monthNum - 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
+        });
+
+        const datasets = categories.map(category => {
+            const color = generateRandomColors(1)[0].replace('0.6', '1');
+            return {
+                label: category,
+                data: sortedMonths.map(month => trends[category][month] || 0),
+                fill: false,
+                borderColor: color,
+                tension: 0.1
+            };
+        });
+
+        window.categoryTrendsChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: { display: true, text: 'Category Trends' },
+                    legend: { display: true }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: value => formatCurrency(value).replace('.00', '') },
+                        title: { display: true, text: 'Amount (EGP)' }
+                    },
+                    x: { title: { display: true, text: 'Month' } }
+                }
+            }
+        });
+    }
+
+    $('#categoryFilter').trigger('change');
+});
+</script>
+{% endblock %}

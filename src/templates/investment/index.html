@@ -1,0 +1,609 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="mb-0">Investment Dashboard</h1>
+            <div class="btn-group">
+                <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-plus me-2"></i>Add New
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{{ url_for('investment.add_price') }}">Add Price/NAV</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{{ url_for('investment.transaction_form', type='stock_buy') }}">Stock Buy</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('investment.transaction_form', type='stock_sell') }}">Stock Sell</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('investment.transaction_form', type='fund_buy') }}">Fund Buy</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('investment.transaction_form', type='fund_sell') }}">Fund Sell</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="card-title text-muted mb-0">Total Investment</h6>
+                    <i class="fas fa-coins text-primary"></i>
+                </div>
+                <h3 class="mb-0" id="totalInvestment">-</h3>
+                <div class="progress mt-3" style="height: 6px;">
+                    <div class="progress-bar bg-primary" role="progressbar" style="width: 100%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="card-title text-muted mb-0">Current Value</h6>
+                    <i class="fas fa-chart-line text-success"></i>
+                </div>
+                <h3 class="mb-0" id="currentValue">-</h3>
+                <div class="progress mt-3" style="height: 6px;">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="card-title text-muted mb-0">Total Return</h6>
+                    <i class="fas fa-hand-holding-usd text-info"></i>
+                </div>
+                <h3 class="mb-0" id="returnAmount">-</h3>
+                <p class="mb-0 text-muted small" id="returnPercentage">-</p>
+                <div class="progress mt-3" style="height: 6px;">
+                    <div class="progress-bar bg-info" role="progressbar" style="width: 100%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Calculator and Holdings -->
+<div class="row mb-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white border-0">
+                <h5 class="mb-0">Position Calculator</h5>
+                <p class="text-muted small mb-0">Estimate returns for potential sales</p>
+            </div>
+            <div class="card-body">
+                <form id="positionCalculator">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="calc_security_type" class="form-label">Security Type</label>
+                            <select class="form-select" id="calc_security_type" name="security_type">
+                                <option value="stock">Stock</option>
+                                <option value="mutual_fund">Mutual Fund</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="calc_identifier" class="form-label" id="calc_identifier_label">Ticker/Fund Name</label>
+                            <input type="text" class="form-control" id="calc_identifier" name="identifier" placeholder="e.g. AAPL or VFIAX">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="calc_quantity" class="form-label">Quantity to Sell</label>
+                            <input type="number" class="form-control" id="calc_quantity" name="quantity" min="0.01" step="0.01" value="100">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="calc_sell_price" class="form-label">Sell Price/NAV (EGP)</label>
+                            <input type="number" class="form-control" id="calc_sell_price" name="sell_price" min="0.01" step="0.01" placeholder="Current price">
+                        </div>
+                        <div class="col-md-6" id="calc_purchase_price_div" style="display:none;">
+                            <label for="calc_purchase_price" class="form-label">Purchase Price/NAV (EGP)</label>
+                            <input type="number" class="form-control" id="calc_purchase_price" name="purchase_price" min="0.01" step="0.01" placeholder="Original price">
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <button type="button" id="calculate_position" class="btn btn-primary w-100">
+                                <i class="fas fa-calculator me-2"></i>Calculate
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                <div id="position_results" class="mt-4 p-3 bg-light rounded" style="display:none;">
+                    <h6 class="border-bottom pb-2">Position Estimate</h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <p class="mb-1">Buy Cost (incl. fees):</p>
+                            <p class="mb-1">Sell Value (after fees):</p>
+                            <p class="mb-1">Return:</p>
+                        </div>
+                        <div class="col-6 text-end">
+                            <p class="mb-1 fw-bold" id="buy_cost">-</p>
+                            <p class="mb-1 fw-bold" id="sell_value">-</p>
+                            <p class="mb-0 fw-bold" id="position_return">- <span id="position_return_percentage" class="text-muted small">-</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-0">Current Holdings</h5>
+                    <p class="text-muted small mb-0">Your active investments</p>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="holdingsFilter" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-filter"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="holdingsFilter">
+                        <li><a class="dropdown-item" href="#" data-type="all">All</a></li>
+                        <li><a class="dropdown-item" href="#" data-type="stock">Stocks Only</a></li>
+                        <li><a class="dropdown-item" href="#" data-type="fund">Funds Only</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="holdingsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Type</th>
+                                <th>Identifier</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end">Avg Price</th>
+                                <th class="text-end">Value</th>
+                                <th class="text-end">Return</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transactions -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-0">Recent Transactions</h5>
+                    <p class="text-muted small mb-0">Your most recent investment activity</p>
+                </div>
+                <a href="{{ url_for('investment.transactions') }}" class="btn btn-sm btn-outline-primary">
+                    View All <i class="fas fa-arrow-right ms-1"></i>
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="recentTransactionsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Type</th>
+                                <th>Identifier</th>
+                                <th>Date</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end">Price</th>
+                                <th class="text-end">Total</th>
+                                <th class="text-end">Return</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Past Investments -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-0">Past Investment Performance</h5>
+                    <p class="text-muted small mb-0">Completed investment positions with returns analysis</p>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="pastInvestmentsFilter" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-filter"></i> Filter
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="pastInvestmentsFilter">
+                        <li><a class="dropdown-item" href="#" data-type="all">All Investments</a></li>
+                        <li><a class="dropdown-item" href="#" data-type="stock">Stocks Only</a></li>
+                        <li><a class="dropdown-item" href="#" data-type="fund">Funds Only</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" data-sort="high_return">Highest Returns</a></li>
+                        <li><a class="dropdown-item" href="#" data-sort="low_return">Lowest Returns</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Summary Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card bg-light border-0 h-100">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Total Investments</h6>
+                                <h4 id="totalPastInvestments">-</h4>
+                                <p class="text-muted small mb-0">Across all securities</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light border-0 h-100">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Total Return</h6>
+                                <h4 id="totalPastReturns">-</h4>
+                                <p class="text-muted small mb-0">Combined profit/loss</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light border-0 h-100">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Avg. Return</h6>
+                                <h4 id="avgPastReturns">-</h4>
+                                <p class="text-muted small mb-0">Percentage across all</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Table -->
+                <div class="table-responsive">
+                    <table class="table table-hover" id="pastInvestmentsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Investment</th>
+                                <th class="text-end">Invested</th>
+                                <th class="text-end">Returned</th>
+                                <th class="text-end">Profit/Loss</th>
+                                <th class="text-end">Return %</th>
+                                <th class="text-end">Performance</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.min.js"></script>
+<script>
+    function formatCurrency(value) {
+        return `EGP ${Number(value || 0).toFixed(2)}`;
+    }
+
+    function formatReturn(value, percentage) {
+        if (value === null || value === undefined) return '-';
+        const formattedValue = formatCurrency(value);
+        const formattedPct = percentage ? `${Number(percentage).toFixed(2)}%` : '';
+        const colorClass = value >= 0 ? 'text-success' : 'text-danger';
+        return `<span class="${colorClass}">${formattedValue} ${formattedPct}</span>`;
+    }
+
+    function loadHoldingsData() {
+        fetch('/investment/api/holdings')
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                
+                let html = '';
+                data.forEach(holding => {
+                    html += `
+                        <tr>
+                            <td>${holding.type === 'stock' ? 'Stock' : 'Mutual Fund'}</td>
+                            <td>${holding.identifier}</td>
+                            <td class="text-end">${Number(holding.total_quantity).toFixed(2)}</td>
+                            <td class="text-end">${formatCurrency(holding.avg_price)}</td>
+                            <td class="text-end">${formatCurrency(holding.current_value)}</td>
+                            <td class="text-end">${formatReturn(holding.return_amount, holding.return_percentage)}</td>
+                        </tr>
+                    `;
+                });
+                
+                $('#holdingsTable tbody').html(html);
+                
+                if (!$.fn.DataTable.isDataTable('#holdingsTable')) {
+                    $('#holdingsTable').DataTable({
+                        searching: false,
+                        paging: false,
+                        info: false,
+                        order: [[4, 'desc']]
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching holdings:', error);
+                $('#holdingsTable tbody').html(
+                    `<tr><td colspan="6" class="text-center text-danger">Error loading holdings: ${error.message}</td></tr>`
+                );
+            });
+    }
+
+    function loadRecentTransactions() {
+        fetch('/investment/api/transactions/all')
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                let html = '';
+                data.forEach(tx => {
+                    const typeBadge = tx.type.includes('Stock') ? 
+                        `<span class="badge ${tx.type.includes('Buy') ? 'bg-primary' : 'bg-success'}">${tx.type}</span>` :
+                        `<span class="badge ${tx.type.includes('Buy') ? 'bg-info' : 'bg-warning text-dark'}">${tx.type}</span>`;
+                    
+                    html += `
+                        <tr data-id="${tx.id}" data-type="${tx.type.toLowerCase().replace(' ', '_')}">
+                            <td>${typeBadge}</td>
+                            <td><strong>${tx.identifier}</strong></td>
+                            <td>${tx.date}</td>
+                            <td class="text-end">${Number(tx.quantity).toFixed(2)}</td>
+                            <td class="text-end">${formatCurrency(tx.price)}</td>
+                            <td class="text-end">${formatCurrency(tx.total)}</td>
+                            <td class="text-end">${formatReturn(tx.return_amount, tx.return_percentage)}</td>
+                        </tr>
+                    `;
+                });
+                
+                $('#recentTransactionsTable tbody').html(html);
+                
+                if (!$.fn.DataTable.isDataTable('#recentTransactionsTable')) {
+                    $('#recentTransactionsTable').DataTable({
+                        pageLength: 5,
+                        order: [[2, 'desc']],
+                        rowCallback: function(row, data) {
+                            $(row).on('click', function() {
+                                const id = $(this).data('id');
+                                const type = $(this).data('type');
+                                window.location.href = `/investment/transactions/form/${id}/${type}`;
+                            });
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching transactions:', error);
+                $('#recentTransactionsTable tbody').html(
+                    `<tr><td colspan="7" class="text-center text-danger">Error loading transactions: ${error.message}</td></tr>`
+                );
+            });
+    }
+
+    function loadInvestmentSummary() {
+        fetch('/investment/api/investment-summary')
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    console.error('Error in investment summary:', data.error);
+                    $('#totalInvestment').text(formatCurrency(0));
+                    $('#currentValue').text(formatCurrency(0));
+                    $('#returnAmount').html(formatReturn(0));
+                    $('#returnPercentage').text('0.00%');
+                    return;
+                }
+                $('#totalInvestment').text(formatCurrency(data.total_investment));
+                $('#currentValue').text(formatCurrency(data.current_value));
+                $('#returnAmount').html(formatReturn(data.return?.amount, data.return?.percentage));
+            })
+            .catch(error => {
+                console.error('Error fetching investment summary:', error);
+                $('#totalInvestment').text(formatCurrency(0));
+                $('#currentValue').text(formatCurrency(0));
+                $('#returnAmount').html(formatReturn(0));
+            });
+    }
+
+    function loadPastInvestments() {
+        fetch('/investment/api/past-investments')
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                
+                // Calculate summary metrics
+                const totalInvestments = data.length;
+                const totalReturnAmount = data.reduce((sum, inv) => sum + inv.return_amount, 0);
+                const avgReturnPercentage = data.reduce((sum, inv) => sum + inv.return_percentage, 0) / totalInvestments;
+                
+                // Update summary cards
+                $('#totalPastInvestments').text(totalInvestments);
+                $('#totalPastReturns').html(formatReturn(totalReturnAmount));
+                $('#avgPastReturns').html(formatReturn(null, avgReturnPercentage));
+                
+                // Populate table
+                let html = '';
+                data.forEach(inv => {
+                    const returnPercentage = Number(inv.return_percentage || 0);
+                    const performanceWidth = Math.min(Math.abs(returnPercentage), 100);
+                    const performanceClass = returnPercentage >= 0 ? 'bg-success' : 'bg-danger';
+                    
+                    html += `
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    ${inv.type === 'stock' ? 
+                                        '<i class="fas fa-chart-line text-primary me-2"></i>' : 
+                                        '<i class="fas fa-money-bill-wave text-info me-2"></i>'}
+                                    <strong>${inv.identifier}</strong>
+                                    <span class="badge ms-2 ${inv.type === 'stock' ? 'bg-primary' : 'bg-info'}">
+                                        ${inv.type === 'stock' ? 'Stock' : 'Fund'}
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="text-end">${formatCurrency(inv.purchase_value)}</td>
+                            <td class="text-end">${formatCurrency(inv.sell_value)}</td>
+                            <td class="text-end">${formatReturn(inv.return_amount)}</td>
+                            <td class="text-end">${formatReturn(null, inv.return_percentage)}</td>
+                            <td class="text-end">
+                                <div class="d-flex align-items-center justify-content-end">
+                                    <div class="progress" style="width: 100px; height: 20px;">
+                                        <div class="progress-bar ${performanceClass}" 
+                                             role="progressbar" 
+                                             style="width: ${performanceWidth}%"
+                                             aria-valuenow="${performanceWidth}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <small class="ms-2">${returnPercentage.toFixed(1)}%</small>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                $('#pastInvestmentsTable tbody').html(html);
+                
+                if (!$.fn.DataTable.isDataTable('#pastInvestmentsTable')) {
+                    $('#pastInvestmentsTable').DataTable({
+                        searching: false,
+                        paging: false,
+                        info: false,
+                        order: [[4, 'desc']]
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching past investments:', error);
+                $('#pastInvestmentsTable tbody').html(
+                    `<tr><td colspan="6" class="text-center text-danger">Error loading past investments: ${error.message}</td></tr>`
+                );
+            });
+    }
+
+    $(document).ready(function() {
+        // Initialize all data loaders
+        loadInvestmentSummary();
+        loadHoldingsData();
+        loadRecentTransactions();
+        loadPastInvestments();
+
+        // Position calculator functionality
+        const calcSecurityType = document.getElementById('calc_security_type');
+        const calcIdentifierLabel = document.getElementById('calc_identifier_label');
+        const calcIdentifier = document.getElementById('calc_identifier');
+        const calcPurchasePriceDiv = document.getElementById('calc_purchase_price_div');
+
+        function updateCalcLabels() {
+            calcIdentifierLabel.textContent = calcSecurityType.value === 'stock' ? 'Ticker' : 'Fund Name';
+        }
+
+        calcSecurityType.addEventListener('change', updateCalcLabels);
+        calcIdentifier.addEventListener('input', function() {
+            const securityType = calcSecurityType.value;
+            const identifier = calcIdentifier.value;
+            if (identifier) {
+                fetch(`/investment/api/holdings?identifier=${encodeURIComponent(identifier)}&type=${securityType}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.length > 0) {
+                            calcPurchasePriceDiv.style.display = 'none';
+                            $('#calc_purchase_price').val('');
+                        } else {
+                            calcPurchasePriceDiv.style.display = 'block';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking holdings:', error);
+                        calcPurchasePriceDiv.style.display = 'block';
+                    });
+            } else {
+                calcPurchasePriceDiv.style.display = 'block';
+            }
+        });
+        updateCalcLabels();
+
+        $('#calculate_position').click(function(e) {
+            e.preventDefault();
+            const securityType = $('#calc_security_type').val();
+            const identifier = $('#calc_identifier').val();
+            const quantity = parseFloat($('#calc_quantity').val()) || 0;
+            const sellPrice = parseFloat($('#calc_sell_price').val()) || 0;
+            const purchasePrice = parseFloat($('#calc_purchase_price').val()) || 0;
+
+            if (!identifier || quantity <= 0 || sellPrice <= 0) {
+                alert('Please fill all required fields with valid values.');
+                return;
+            }
+
+            const queryParams = new URLSearchParams({
+                investment_type: securityType,
+                identifier: identifier,
+                quantity_sold: quantity,
+                sell_price: sellPrice
+            });
+            if (purchasePrice > 0) {
+                queryParams.append('purchase_price', purchasePrice);
+            }
+
+            fetch(`/investment/api/investment-summary?${queryParams.toString()}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+                    if (data.sale_metrics) {
+                        $('#buy_cost').text(formatCurrency(data.sale_metrics.buy_cost));
+                        $('#sell_value').text(formatCurrency(data.sale_metrics.sell_value));
+                        $('#position_return').html(formatReturn(data.sale_metrics.sale_return.amount, data.sale_metrics.sale_return.percentage));
+                        $('#position_results').css('display', 'block');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error calculating position:', error);
+                    alert('Error calculating position.');
+                });
+        });
+
+        // Filter functionality
+        $(document).on('click', '[data-type]', function(e) {
+            e.preventDefault();
+            const type = $(this).data('type');
+            const tableId = $(this).closest('.card').find('table').attr('id');
+            const table = $(`#${tableId}`).DataTable();
+            
+            if (type === 'all') {
+                table.search('').columns().search('').draw();
+            } else {
+                table.column(0).search(type === 'stock' ? 'Stock' : 'Mutual Fund').draw();
+            }
+        });
+
+        $(document).on('click', '[data-sort]', function(e) {
+            e.preventDefault();
+            const sort = $(this).data('sort');
+            const table = $('#pastInvestmentsTable').DataTable();
+            
+            if (sort === 'high_return') {
+                table.order([4, 'desc']).draw();
+            } else if (sort === 'low_return') {
+                table.order([4, 'asc']).draw();
+            }
+        });
+    });
+</script>
+{% endblock %}

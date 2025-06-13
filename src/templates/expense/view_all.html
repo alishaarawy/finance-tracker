@@ -1,0 +1,186 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">All Expenses</h1>
+        <div class="card">
+            <div class="card-header gradient-expense text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Expense History</h5>
+                <div>
+                    <button id="deleteSelectedViewAll" class="btn btn-danger btn-sm me-2" disabled>Delete Selected</button>
+                    <a href="{{ url_for('expense.add') }}" class="btn btn-light btn-sm me-2">Add New Expense</a>
+                    <a href="{{ url_for('expense.index') }}" class="btn btn-light btn-sm">Back to Dashboard</a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="allExpensesTable">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAllViewAll"></th>
+                                <th>Date</th>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>Total</th>
+                                <th>Details</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="allExpensesTableBody">
+                            <tr><td colspan="7" class="text-center">Loading data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(amount);
+}
+
+function deleteExpense(id) {
+    if (window.confirm('Are you sure you want to delete this expense?')) {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        $.ajax({
+            url: `/expense/delete/${id}`,
+            type: 'POST',
+            headers: { 'X-CSRF-Token': csrfToken },
+            success: function(response) {
+                if (response.status === 'success') {
+                    $('#allExpensesTable').DataTable().ajax.reload(null, false); // Preserve pagination
+                    alert('Expense deleted successfully!');
+                } else {
+                    alert('Error: ' + (response.message || 'Unknown error'));
+                }
+            },
+            error: function(xhr) {
+                alert('Error deleting expense: ' + (xhr.responseJSON?.message || 'Unknown error'));
+            }
+        });
+    }
+}
+
+function deleteSelectedExpenses() {
+    const selectedIds = $('.select-checkbox:checked').map(function() {
+        return parseInt(this.value);
+    }).get();
+
+    if (selectedIds.length === 0) {
+        alert('Please select at least one expense to delete.');
+        return;
+    }
+
+    if (window.confirm(`Are you sure you want to delete ${selectedIds.length} expense(s)?`)) {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        $.ajax({
+            url: '/expense/delete_multiple',
+            type: 'POST',
+            contentType: 'application/json',
+            headers: { 'X-CSRF-Token': csrfToken },
+            data: JSON.stringify({ ids: selectedIds }),
+            success: function(response) {
+                if (response.status === 'success') {
+                    $('#allExpensesTable').DataTable().ajax.reload(null, false); // Preserve pagination
+                    $('#selectAllViewAll').prop('checked', false);
+                    $('#deleteSelectedViewAll').prop('disabled', true);
+                    alert(response.message);
+                } else {
+                    alert('Error: ' + (response.message || 'Unknown error'));
+                }
+            },
+            error: function(xhr) {
+                alert('Error deleting expenses: ' + (xhr.responseJSON?.message || 'Unknown error'));
+            }
+        });
+    }
+}
+
+window.loadData = function(queryString = '') {
+    // Destroy existing DataTable if initialized
+    if ($.fn.DataTable.isDataTable('#allExpensesTable')) {
+        $('#allExpensesTable').DataTable().destroy();
+        $('#allExpensesTableBody').empty(); // Clear table body
+    }
+
+    $('#allExpensesTable').DataTable({
+        ajax: {
+            url: `/expense/api/list?${queryString}`,
+            dataSrc: function(json) {
+                if (!Array.isArray(json)) {
+                    console.error('Invalid API response:', json);
+                    $('#allExpensesTableBody').html(
+                        '<tr><td colspan="7" class="text-center text-danger">Invalid data format</td></tr>'
+                    );
+                    return [];
+                }
+                return json;
+            },
+            error: function(xhr, error, thrown) {
+                console.error('DataTables AJAX error:', error, thrown);
+                $('#allExpensesTableBody').html(
+                    `<tr><td colspan="7" class="text-center text-danger">Error loading data: ${xhr.statusText}</td></tr>`
+                );
+            }
+        },
+        columns: [
+            {
+                data: null,
+                render: function(row) {
+                    return `<input type="checkbox" class="select-checkbox" value="${row.id}">`;
+                },
+                orderable: false
+            },
+            { data: 'date' },
+            { data: 'item' },
+            { data: 'category' },
+            { data: 'amount', render: d => formatCurrency(d) },
+            { data: 'description' },
+            {
+                data: null,
+                render: function(row) {
+                    return `
+                        <a href="/expense/edit/${row.id}" class="btn btn-sm btn-primary">Edit</a>
+                        <button onclick="deleteExpense(${row.id})" class="btn btn-sm btn-danger">Delete</button>
+                    `;
+                }
+            }
+        ],
+        order: [[1, 'desc']],
+        pageLength: 10,
+        lengthChange: true,
+        searching: true,
+        paging: true,
+        info: true,
+        language: {
+            emptyTable: 'No expense data available.'
+        },
+        drawCallback: function() {
+            // Rebind event handlers after each draw
+            $('#selectAllViewAll').off('change').on('change', function() {
+                $('.select-checkbox').prop('checked', this.checked);
+                $('#deleteSelectedViewAll').prop('disabled', !$('.select-checkbox:checked').length);
+            });
+
+            $('#allExpensesTable').off('change', '.select-checkbox').on('change', '.select-checkbox', function() {
+                $('#deleteSelectedViewAll').prop('disabled', !$('.select-checkbox:checked').length);
+                $('#selectAllViewAll').prop('checked', $('.select-checkbox').length === $('.select-checkbox:checked').length);
+            });
+        }
+    });
+
+    // Bind Delete Selected button
+    $('#deleteSelectedViewAll').off('click').on('click', deleteSelectedExpenses);
+};
+
+$(document).ready(function() {
+    console.log('jQuery version:', $.fn.jquery);
+    window.loadData();
+});
+</script>
+{% endblock %}

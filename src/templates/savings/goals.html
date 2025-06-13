@@ -1,0 +1,100 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function formatCurrency(amount) {
+        return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(amount);
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script>
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Savings Goals</h1>
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">All Savings Goals</h5>
+                <a href="{{ url_for('savings.add') }}" class="btn btn-light btn-sm">Add New Goal</a>
+            </div>
+            <div class="card-body">
+                {% if goals %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Target Amount</th>
+                                <th>Total Saved</th>
+                                <th>Progress</th>
+                                <th>Monthly Savings</th>
+                                <th>Duration</th>
+                                <th>Target Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+    {% for goal in goals %}
+    <tr>
+        <td>{{ goal.name }}</td>
+        <td><script>document.write(formatCurrency({{ goal.target_amount }}))</script></td>
+        <td><script>document.write(formatCurrency({{ goal.savings|sum(attribute='amount') }}))</script></td>
+        <td>{{ (goal.savings|sum(attribute='amount') / goal.target_amount * 100 if goal.target_amount else 0 | round(1)) }}%</td>
+        <td><script>document.write(formatCurrency({{ goal.monthly_savings }}))</script></td>
+        <td>{{ goal.duration }} months</td>
+        <td>{{ goal.target_date.strftime('%Y-%m-%d') if goal.target_date else '-' }}</td>
+        <td>
+            <a href="{{ url_for('savings.edit_goal', id=goal.id) }}" class="btn btn-sm btn-primary">Edit</a>
+            <form action="{{ url_for('savings.delete_goal', id=goal.id) }}" method="POST" style="display:inline;">
+                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this goal?')">Delete</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-center">No savings goals available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

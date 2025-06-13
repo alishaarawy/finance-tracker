@@ -1,0 +1,173 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Import Excel Data</h2>
+    
+    <!-- Flash messages display -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="mb-4">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="card">
+        <div class="card-header">Upload Excel File</div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('import.import_excel') }}" enctype="multipart/form-data" id="importForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="form-group mb-3">
+                    <label for="file" class="form-label">Select Excel File</label>
+                    <input type="file" class="form-control" id="file" name="file" accept=".xlsx" required>
+                    <div class="invalid-feedback">Please select a valid Excel file (.xlsx)</div>
+                    <small class="form-text text-muted">
+                        The Excel file should contain separate sheets for each data type (income, expenses, gold, exchange_rates, inflation, savings).
+                        Maximum file size: 10MB.
+                    </small>
+                </div>
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    Upload and Import
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">Excel File Format</div>
+        <div class="card-body">
+            <p>Your Excel file should contain the following sheets with these column headers:</p>
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Income Sheet</h5>
+                    <p><strong>Required columns:</strong></p>
+                    <ul>
+                        <li><code>amount</code>: The income amount</li>
+                        <li><code>date</code>: Date in YYYY-MM-DD format</li>
+                        <li><code>source</code>: Source of income</li>
+                    </ul>
+                    <p><strong>Optional columns:</strong></p>
+                    <ul>
+                        <li><code>description</code>: Additional details</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h5>Expenses Sheet</h5>
+                    <p><strong>Required columns:</strong></p>
+                    <ul>
+                        <li><code>amount</code>: The expense amount</li>
+                        <li><code>date</code>: Date in YYYY-MM-DD format</li>
+                        <li><code>category</code>: Expense category (e.g., Food and Beverages, Housing, etc.)</li>
+                    </ul>
+                    <p><strong>Optional columns:</strong></p>
+                    <ul>
+                        <li><code>description</code>: Additional details</li>
+                        <li><code>item</code>: Item name</li>
+                        <li><code>quantity</code>: Quantity of items</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h5>Gold Sheet</h5>
+                    <p><strong>Required columns:</strong></p>
+                    <ul>
+                        <li><code>weight</code>: Weight in grams</li>
+                        <li><code>karat</code>: Gold karat (24, 21, or 18)</li>
+                        <li><code>purchase_price</code>: Price per gram</li>
+                        <li><code>date</code>: Date in YYYY-MM-DD format</li>
+                    </ul>
+                    <p><strong>Optional columns:</strong></p>
+                    <ul>
+                        <li><code>description</code>: Additional details</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h5>Exchange Rates Sheet</h5>
+                    <p><strong>Required columns:</strong></p>
+                    <ul>
+                        <li><code>date</code>: Date in YYYY-MM-DD format</li>
+                        <li><code>rate</code>: EGP/USD exchange rate</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h5>Inflation Sheet</h5>
+                    <p><strong>Required columns:</strong></p>
+                    <ul>
+                        <li><code>date</code>: Date in YYYY-MM-DD format</li>
+                        <li><code>cpi_value</code>: Consumer Price Index value</li>
+                        <li><code>category</code>: Either 'food' or 'all'</li>
+                    </ul>
+                    <p><strong>Optional columns:</strong></p>
+                    <ul>
+                        <li><code>country</code>: Country code (e.g., 'US', 'EGY')</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h5>Savings Sheet</h5>
+                    <p><strong>Required columns:</strong></p>
+                    <ul>
+                        <li><code>amount</code>: The saving amount</li>
+                        <li><code>date</code>: Date in YYYY-MM-DD format</li>
+                        <li><code>goal</code>: Name of the savings goal</li>
+                    </ul>
+                    <p><strong>Optional columns:</strong></p>
+                    <ul>
+                        <li><code>description</code>: Additional details</li>
+                        <li><code>target_amount</code>: Target amount for the goal</li>
+                        <li><code>target_date</code>: Target date for the goal</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <a href="{{ url_for('static', filename='templates/finance_template.xlsx') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-download"></i> Download Template File
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('importForm');
+        const fileInput = document.getElementById('file');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        form.addEventListener('submit', function(e) {
+            // Client-side validation
+            if (!fileInput.files || fileInput.files.length === 0) {
+                e.preventDefault();
+                fileInput.classList.add('is-invalid');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            if (!file.name.endsWith('.xlsx')) {
+                e.preventDefault();
+                fileInput.classList.add('is-invalid');
+                return;
+            }
+            
+            // Show loading spinner
+            submitBtn.disabled = true;
+            submitBtn.querySelector('.spinner-border').classList.remove('d-none');
+        });
+        
+        // Remove invalid class when user selects a file
+        fileInput.addEventListener('change', function() {
+            if (fileInput.files && fileInput.files.length > 0 && fileInput.files[0].name.endsWith('.xlsx')) {
+                fileInput.classList.remove('is-invalid');
+            }
+        });
+    });
+</script>
+{% endblock %}

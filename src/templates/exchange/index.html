@@ -1,0 +1,249 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Exchange Rate Tracking</h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Exchange Rate Summary</h5>
+                <a href="{{ url_for('exchange.add') }}" class="btn btn-light btn-sm">Add New Rate</a>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card stat-card bg-light">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Latest Rate</h5>
+                                <p class="dashboard-stat" id="latestRate">-</p>
+                                <p class="dashboard-label" id="latestRateDate">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card stat-card bg-light">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Average Rate</h5>
+                                <p class="dashboard-stat" id="averageRate">-</p>
+                                <p class="dashboard-label">Current Period</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card stat-card bg-light">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Change</h5>
+                                <p class="dashboard-stat" id="rateChange">-</p>
+                                <p class="dashboard-label">Current Period</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Exchange Rate Trend</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="exchangeRateChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Exchange Rate History</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Rate (EGP/USD)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="exchangeRateTable">
+                            <tr>
+                                <td colspan="3" class="text-center">Loading data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+    let exchangeRateChart;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadData();
+    });
+
+    function getDateRangeParams() {
+        const startDate = document.getElementById('start_date').value;
+        const endDate = document.getElementById('end_date').value;
+        return { start_date: startDate, end_date: endDate };
+    }
+
+    function formatCurrency(value) {
+        return `EGP ${Number(value).toFixed(2)}`;
+    }
+
+    function createChart(canvasId, type, labels, datasets, options) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+            console.error(`Canvas ${canvasId} not found`);
+            return null;
+        }
+        const ctx = canvas.getContext('2d');
+        return new Chart(ctx, {
+            type: type,
+            data: { labels, datasets },
+            options
+        });
+    }
+
+    function loadData() {
+        const dateParams = getDateRangeParams();
+        const query = new URLSearchParams(dateParams).toString();
+
+        fetch(`/exchange/api/list?${query}`)
+            .then(response => response.json())
+            .then(data => {
+                updateExchangeRateTable(data);
+            })
+            .catch(error => {
+                console.error('Error loading exchange rate data:', error);
+                document.getElementById('exchangeRateTable').innerHTML = 
+                    `<tr><td colspan="3" class="text-center text-danger">Error loading data</td></tr>`;
+            });
+
+        fetch(`/exchange/api/summary?${query}`)
+            .then(response => response.json())
+            .then(data => {
+                updateExchangeRateSummary(data);
+                updateExchangeRateChart(data.chart_data);
+            })
+            .catch(error => {
+                console.error('Error loading exchange rate summary:', error);
+            });
+    }
+
+    function updateExchangeRateTable(data) {
+        const tableBody = document.getElementById('exchangeRateTable');
+        
+        if (!data || data.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="3" class="text-center">No exchange rate data available</td></tr>`;
+            return;
+        }
+        
+        let html = '';
+        data.forEach(rate => {
+            html += `
+                <tr>
+                    <td>${rate.date}</td>
+                    <td>${rate.rate.toFixed(2)}</td>
+                    <td>
+                        <a href="/exchange/edit/${rate.id}" class="btn btn-sm btn-primary">Edit</a>
+                        <button onclick="deleteRate(${rate.id})" class="btn btn-sm btn-danger">Delete</button>
+                    </td>
+                </tr>
+            `;
+        });
+        tableBody.innerHTML = html;
+    }
+
+    function updateExchangeRateSummary(data) {
+        document.getElementById('latestRate').textContent = formatCurrency(data.latest.rate);
+        document.getElementById('latestRateDate').textContent = data.latest.date || 'No data';
+        document.getElementById('averageRate').textContent = formatCurrency(data.statistics.average);
+        
+        const changeElement = document.getElementById('rateChange');
+        const change = data.statistics.change;
+        const changePercent = data.statistics.change_percent;
+        
+        if (change >= 0) {
+            changeElement.innerHTML = `+${formatCurrency(change)} <small>(+${changePercent.toFixed(2)}%)</small>`;
+            changeElement.classList.add('text-success');
+            changeElement.classList.remove('text-danger');
+        } else {
+            changeElement.innerHTML = `${formatCurrency(change)} <small>(${changePercent.toFixed(2)}%)</small>`;
+            changeElement.classList.add('text-danger');
+            changeElement.classList.remove('text-success');
+        }
+    }
+
+    function updateExchangeRateChart(chartData) {
+        if (!chartData || chartData.length === 0) {
+            document.getElementById('exchangeRateChart').parentElement.innerHTML = 
+                '<p class="text-center text-warning">No data available</p>';
+            return;
+        }
+        
+        const dates = chartData.map(item => {
+            const date = new Date(item.date);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        });
+        
+        const rates = chartData.map(item => item.rate);
+        
+        const datasets = [
+            {
+                label: 'EGP/USD Exchange Rate',
+                data: rates,
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 2,
+                tension: 0.3
+            }
+        ];
+        
+        if (exchangeRateChart) {
+            exchangeRateChart.data.labels = dates;
+            exchangeRateChart.data.datasets[0].data = rates;
+            exchangeRateChart.update();
+        } else {
+            exchangeRateChart = createChart('exchangeRateChart', 'line', dates, datasets, {
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            });
+        }
+    }
+
+    function deleteRate(id) {
+        if (confirm('Are you sure you want to delete this exchange rate?')) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/exchange/delete/${id}`;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+</script>
+{% endblock %}

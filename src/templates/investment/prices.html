@@ -1,0 +1,177 @@
+<script type="text/javascript">
+var gk_isXlsx = false;
+var gk_xlsxFileLookup = {};
+var gk_fileData = {};
+function filledCell(cell) {
+    return cell !== '' && cell != null;
+}
+function loadFileData(filename) {
+    if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+        try {
+            var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+            var firstSheetName = workbook.SheetNames[0];
+            var worksheet = workbook.Sheets[firstSheetName];
+            var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+            var filteredData = jsonData.filter(row => row.some(filledCell));
+            var headerRowIndex = filteredData.findIndex((row, index) =>
+                row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+            );
+            if (headerRowIndex === -1 || headerRowIndex > 25) {
+                headerRowIndex = 0;
+            }
+            var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
+            csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+            return csv;
+        } catch (e) {
+            console.error(e);
+            return "";
+        }
+    }
+    return gk_fileData[filename] || "";
+}
+</script>
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Investment Prices/NAVs</h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Price/NAV Summary</h5>
+                <a href="{{ url_for('investment.add_price') }}" class="btn btn-light btn-sm">Add Price/NAV</a>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered" id="pricesTable">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Identifier</th>
+                            <th>Price/NAV (EGP)</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Price/NAV Trend</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.min.js"></script>
+<script>
+let priceChart;
+
+$(document).ready(function() {
+    $('#pricesTable').DataTable({
+        order: [[3, 'desc']],
+        ajax: { url: '/investment/api/prices', dataSrc: '' },
+        columns: [
+            { data: 'type', render: d => d === 'stock' ? 'Stock' : 'Mutual Fund' },
+            { data: 'identifier' },
+            { data: 'price', render: d => `EGP ${d.toFixed(2)}` },
+            { data: 'date' },
+            {
+                data: null,
+                render: data => `<a href="/investment/prices/edit/${data.id}/${data.type}" class="btn btn-sm btn-primary">Edit</a>
+                    <button onclick="deletePrice(${data.id}, '${data.type}')" class="btn btn-sm btn-danger">Delete</button>`
+            }
+        ]
+    });
+
+    loadData();
+});
+
+function formatCurrency(value) {
+    return `EGP ${Number(value || 0).toFixed(2)}`;
+}
+
+function loadData() {
+    fetch('/investment/api/prices')
+        .then(response => response.json())
+        .then(data => {
+            const stockData = data.filter(p => p.type === 'stock').sort((a, b) => new Date(a.date) - new Date(b.date));
+            const fundData = data.filter(p => p.type === 'fund').sort((a, b) => new Date(a.date) - new Date(b.date));
+            const datasets = [];
+
+            const stockTickers = [...new Set(stockData.map(p => p.identifier))];
+            const fundNames = [...new Set(fundData.map(p => p.identifier))];
+
+            stockTickers.forEach(ticker => {
+                const tickerData = stockData.filter(p => p.identifier === ticker);
+                datasets.push({
+                    label: `Stock ${ticker}`,
+                    data: tickerData.map(p => p.price),
+                    borderColor: `#${Math.floor(Math.random()*16777215).toString(16)}`,
+                    backgroundColor: 'rgba(255, 215, 0, 0.2)'
+                });
+            });
+
+            fundNames.forEach(fund => {
+                const fundDataFiltered = fundData.filter(p => p.identifier === fund);
+                datasets.push({
+                    label: `Fund ${fund}`,
+                    data: fundDataFiltered.map(p => p.price),
+                    borderColor: `#${Math.floor(Math.random()*16777215).toString(16)}`,
+                    backgroundColor: 'rgba(218, 165, 32, 0.2)'
+                });
+            });
+
+            const dates = [...new Set(data.map(p => p.date))].sort();
+            if (priceChart) priceChart.destroy();
+            priceChart = new Chart(document.getElementById('priceChart'), {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: function(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+}
+
+function deletePrice(id, investment_type) {
+    if (confirm('Are you sure you want to delete this price/NAV?')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/investment/prices/delete/${id}/${investment_type}`;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

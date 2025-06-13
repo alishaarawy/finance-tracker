@@ -1,0 +1,70 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <h1 class="mb-4">Add New Gold Price</h1>
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Gold Price Details</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('gold.add_price') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="price_type" class="form-label">Price Type</label>
+                        <select class="form-select" id="price_type" name="price_type" required>
+                            <option value="local">Local Market</option>
+                            <option value="global">Global Market</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="price_24k" class="form-label">24K Price (per gram)</label>
+                        <input type="number" step="0.01" class="form-control" id="price_24k" name="price_24k" required>
+                    </div>
+                    <div class="mb-3 local-prices">
+                        <label for="price_21k" class="form-label">21K Price (per gram) <small class="text-muted">(Optional)</small></label>
+                        <input type="number" step="0.01" class="form-control" id="price_21k" name="price_21k">
+                    </div>
+                    <div class="mb-3 local-prices">
+                        <label for="price_18k" class="form-label">18K Price (per gram) <small class="text-muted">(Optional)</small></label>
+                        <input type="number" step="0.01" class="form-control" id="price_18k" name="price_18k">
+                    </div>
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Date</label>
+                        <input type="date" class="form-control" id="date" name="date" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Price</button>
+                    <a href="{{ url_for('gold.prices') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const priceTypeSelect = document.getElementById('price_type');
+        const localPriceFields = document.querySelectorAll('.local-prices');
+        
+        function toggleLocalPriceFields() {
+            localPriceFields.forEach(field => field.style.display = priceTypeSelect.value === 'local' ? 'block' : 'none');
+        }
+        
+        priceTypeSelect.addEventListener('change', toggleLocalPriceFields);
+        toggleLocalPriceFields();
+        
+        const price24kInput = document.getElementById('price_24k');
+        const price21kInput = document.getElementById('price_21k');
+        const price18kInput = document.getElementById('price_18k');
+        
+        price24kInput.addEventListener('input', function() {
+            const price24k = parseFloat(price24kInput.value) || 0;
+            price21kInput.placeholder = (price24k * (21/24)).toFixed(2);
+            price18kInput.placeholder = (price24k * (18/24)).toFixed(2);
+        });
+    });
+</script>
+{% endblock %}

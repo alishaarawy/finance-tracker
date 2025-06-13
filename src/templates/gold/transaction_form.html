@@ -1,0 +1,45 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <h1 class="mb-4">{{ 'Edit' if transaction or sell_transaction else 'Add' }} {{ 'Buy' if is_buy else 'Sell' }} Transaction</h1>
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Transaction Details</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('gold.transaction_form', id=transaction.id if transaction else sell_transaction.id if sell_transaction else None, type='buy' if is_buy else 'sell') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="weight" class="form-label">Weight (grams)</label>
+                        <input type="number" step="0.01" class="form-control" id="weight" name="weight" value="{{ transaction.weight if transaction else sell_transaction.weight if sell_transaction else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="karat" class="form-label">Karat</label>
+                        <select class="form-select" id="karat" name="karat" required>
+                            <option value="24" {% if (transaction and transaction.karat == 24) or (sell_transaction and sell_transaction.karat == 24) %}selected{% endif %}>24K</option>
+                            <option value="21" {% if (transaction and transaction.karat == 21) or (sell_transaction and sell_transaction.karat == 21) %}selected{% endif %}>21K</option>
+                            <option value="18" {% if (transaction and transaction.karat == 18) or (sell_transaction and sell_transaction.karat == 18) %}selected{% endif %}>18K</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="price" class="form-label">{{ 'Purchase' if is_buy else 'Sell' }} Price per Gram (EGP)</label>
+                        <input type="number" step="0.01" class="form-control" id="price" name="price" value="{{ transaction.purchase_price if transaction else sell_transaction.sell_price if sell_transaction else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Date</label>
+                        <input type="date" class="form-control" id="date" name="date" value="{{ transaction.date.strftime('%Y-%m-%d') if transaction else sell_transaction.date.strftime('%Y-%m-%d') if sell_transaction else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="description" name="description" rows="3">{{ transaction.description if transaction else sell_transaction.description if sell_transaction else '' }}</textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">{{ 'Update' if transaction or sell_transaction else 'Add' }} Transaction</button>
+                    <a href="{{ url_for('gold.transactions') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

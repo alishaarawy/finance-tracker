@@ -1,0 +1,94 @@
+body {
+    background-color: #f8f9fa;
+    font-family: 'Roboto', sans-serif;
+}
+
+.container {
+    max-width: 1200px;
+}
+
+.stat-card {
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.dashboard-stat {
+    margin-bottom: 0.5rem;
+}
+
+.gradient-income {
+    background: linear-gradient(135deg, #28a745, #218838);
+}
+
+.gradient-expense {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+}
+
+.gradient-balance {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+}
+
+.gradient-exchange {
+    background: linear-gradient(135deg, #17a2b8, #117a8b);
+}
+
+.gradient-gold {
+    background: linear-gradient(135deg, #ffc107, #e0a800);
+}
+
+.gradient-inflation {
+    background: linear-gradient(135deg, #6f42c1, #5a32a3);
+}
+
+.filter-bar {
+    background: linear-gradient(135deg, #ffffff, #f1f3f5);
+    border: 1px solid #e9ecef;
+}
+
+.filter-bar .btn-primary {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+.filter-bar .btn-primary:hover {
+    background-color: #003d82;
+    border-color: #003d82;
+}
+
+.filter-bar .btn-outline-secondary {
+    border-color: #6c757d;
+    color: #6c757d;
+}
+
+.filter-bar .btn-outline-secondary:hover {
+    background-color: #6c757d;
+    color: #fff;
+}
+/* Add to your CSS */
+#durationBadge {
+    font-size: 1.1rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    display: inline-flex;
+    align-items: center;
+}
+
+#durationText {
+    font-weight: 600;
+}
+
+/* Make the badge responsive */
+@media (max-width: 768px) {
+    .d-flex.flex-wrap {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+    
+    #durationBadge {
+        margin-bottom: 1rem;
+    }
+}

@@ -1,0 +1,212 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">All Transactions</h1>
+        <div class="mb-3">
+            <a href="{{ url_for('investment.transaction_form', type='stock_buy') }}" class="btn btn-primary me-2">Add Stock Buy</a>
+            <a href="{{ url_for('investment.transaction_form', type='stock_sell') }}" class="btn btn-primary me-2">Add Stock Sell</a>
+            <a href="{{ url_for('investment.transaction_form', type='fund_buy') }}" class="btn btn-primary me-2">Add Fund Buy</a>
+            <a href="{{ url_for('investment.transaction_form', type='fund_sell') }}" class="btn btn-primary">Add Fund Sell</a>
+        </div>
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Transaction History</h5>
+            </div>
+            <div class="card-body">
+                <div id="error-message" class="alert alert-danger" style="display:none;"></div>
+                <table class="table table-striped table-hover" id="transactionsTable">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Identifier</th>
+                            <th>Date</th>
+                            <th>Quantity</th>
+                            <th>Price/NAV</th>
+                            <th>Net Total</th>
+                            <th>Return</th>
+                            <th>Return (%)</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction Details Modal -->
+<div class="modal fade" id="transactionDetailsModal" tabindex="-1" aria-labelledby="transactionDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="transactionDetailsModalLabel">Transaction Receipt</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="transactionDetailsContent">
+                    <p><strong>Type:</strong> <span id="detail_type"></span></p>
+                    <p><strong>Identifier:</strong> <span id="detail_identifier"></span></p>
+                    <p><strong>Date:</strong> <span id="detail_date"></span></p>
+                    <p><strong>Quantity:</strong> <span id="detail_quantity"></span></p>
+                    <p><strong>Price/NAV:</strong> <span id="detail_price"></span></p>
+                    <p><strong>Total (excl. fees):</strong> <span id="detail_total"></span></p>
+                    <div id="detail_fees" style="display:none;">
+                        <p><strong>Fees:</strong></p>
+                        <ul id="stock_fees" style="display:none;">
+                            <li>EGX Fee: <span id="detail_egx_fee"></span></li>
+                            <li>MCDR Fee: <span id="detail_mcdr_fee"></span></li>
+                            <li>FRA Fee: <span id="detail_fra_fee"></span></li>
+                            <li>Risk Insurance Fee: <span id="detail_risk_insurance_fee"></span></li>
+                        </ul>
+                        <ul id="fund_fees">
+                            <li>Brokerage Order Fee: <span id="detail_brokerage_order_fee"></span></li>
+                            <li>Brokerage Custody Fee: <span id="detail_brokerage_custody_fee"></span></li>
+                            <li><strong>Total Fees:</strong> <span id="detail_total_fees"></span></li>
+                        </ul>
+                    </div>
+                    <p><strong>Net Total:</strong> <span id="detail_net_total"></span></p>
+                       <p><strong>Net Total: subtract/add fees if sell/buy transaction</strong></p>
+
+                    <p id="detail_return_container" style="display:none;">
+                        <strong>Return:</strong> <span id="detail_return"></span> (<span id="detail_return_percentage"></span>)
+                    </p>
+                    <p><strong>Description:</strong> <span id="detail_description"></span></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="#" id="edit_transaction" class="btn btn-primary">Edit</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function formatCurrency(value) {
+        return `EGP ${Number(value || 0).toFixed(2)}`;
+    }
+
+    $(document).ready(function() {
+        const table = $('#transactionsTable').DataTable({
+            ajax: {
+                url: '/investment/api/transactions/all',
+                dataSrc: '',
+                error: function(xhr, error, thrown) {
+                    console.error('DataTables Ajax error:', xhr, error, thrown);
+                    let errorMsg = 'Failed to load transactions. Please try again.';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = `Error: ${xhr.responseJSON.error}`;
+                    } else if (xhr.status) {
+                        errorMsg = `Server error (HTTP ${xhr.status}): ${xhr.statusText}`;
+                    }
+                    $('#error-message').text(errorMsg).show();
+                }
+            },
+            columns: [
+                { data: 'type' },
+                { data: 'identifier' },
+                { data: 'date' },
+                { data: 'quantity', render: function(data) { return Number(data).toFixed(2); } },
+                { data: 'price', render: formatCurrency },
+                {
+                    data: null,
+                    render: function(data, type, row) {
+                        const isBuy = row.type.toLowerCase().includes('buy');
+                        const netTotal = row.fees && row.fees.total_fees > 0
+                            ? isBuy
+                                ? row.total 
+                                : row.total - row.fees.total_fees
+                            : row.total;
+                        return formatCurrency(netTotal);
+                    }
+                },
+                { data: 'return_amount', render: function(data) { return data ? formatCurrency(data) : '-'; } },
+                { data: 'return_percentage', render: function(data) { return data ? `${Number(data).toFixed(2)}%` : '-'; } },
+                {
+                    data: null,
+                    render: function(data, type, row) {
+                        return `
+                            <a href="/investment/transactions/form/${row.id}/${row.type.toLowerCase().replace(' ', '_')}" class="btn btn-sm btn-primary me-2">Edit</a>
+                            <form action="/investment/transactions/delete/${row.id}/${row.type.toLowerCase().replace(' ', '_')}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this transaction?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                            </form>
+                        `;
+                    }
+                }
+            ],
+            order: [[2, 'desc']],
+            rowCallback: function(row, data) {
+                $(row).on('click', function(e) {
+                    if ($(e.target).closest('.btn').length) return; // Ignore clicks on buttons
+                    const id = data.id;
+                    const type = data.type.toLowerCase().replace(/[\s-]/g, '_');
+                    fetch(`/investment/api/transactions/${id}/${type}`, {
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token() }}'
+                        }
+                    })
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.json().then(err => {
+                                    throw new Error(err.error || `HTTP ${response.status}: ${response.statusText}`);
+                                });
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            $('#detail_type').text(data.type);
+                            $('#detail_identifier').text(data.identifier);
+                            $('#detail_date').text(data.date);
+                            $('#detail_quantity').text(Number(data.quantity).toFixed(2));
+                            $('#detail_price').text(formatCurrency(data.price));
+                            $('#detail_total').text(formatCurrency(data.total));
+                            if (data.fees && data.fees.total_fees > 0) {
+                                const isStock = data.type.toLowerCase().includes('stock');
+                                $('#detail_egx_fee').text(formatCurrency(data.fees.egx_fee));
+                                $('#detail_mcdr_fee').text(formatCurrency(data.fees.mcdr_fee));
+                                $('#detail_fra_fee').text(formatCurrency(data.fees.fra_fee));
+                                $('#detail_risk_insurance_fee').text(formatCurrency(data.fees.risk_insurance_fee));
+                                $('#detail_brokerage_order_fee').text(formatCurrency(data.fees.brokerage_order_fee));
+                                $('#detail_brokerage_custody_fee').text(formatCurrency(data.fees.brokerage_custody_fee));
+                                $('#detail_total_fees').text(formatCurrency(data.fees.total_fees));
+                                $('#stock_fees').css('display', isStock ? 'block' : 'none');
+                                $('#fund_fees').show();
+                                $('#detail_fees').show();
+                                const isBuy = data.type.toLowerCase().includes('buy');
+                                $('#detail_net_total').text(formatCurrency(
+                                    isBuy ? data.total  : data.total - data.fees.total_fees
+                                ));
+                            } else {
+                                $('#detail_fees').hide();
+                                $('#detail_net_total').text(formatCurrency(data.total));
+                            }
+                            if (data.return_amount !== null) {
+                                $('#detail_return').text(formatCurrency(data.return_amount));
+                                $('#detail_return_percentage').text(`${Number(data.return_percentage).toFixed(2)}%`);
+                                $('#detail_return_container').show();
+                            } else {
+                                $('#detail_return_container').hide();
+                            }
+                            $('#detail_description').text(data.description || 'None');
+                            $('#edit_transaction').attr('href', `/investment/transactions/form/${data.id}/${type}`);
+                            $('#transactionDetailsModal').modal('show');
+                        })
+                        .catch(error => {
+                            console.error('Error fetching transaction details:', error);
+                            $('#transactionDetailsContent').html(`<p class="text-danger">Error: ${error.message}</p>`);
+                            $('#transactionDetailsModal').modal('show');
+                        });
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}

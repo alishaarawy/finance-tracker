@@ -1,0 +1,306 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Item Price Analysis</h1>
+        <div class="card">
+            <div class="card-header gradient-expense text-white">
+                <h5 class="mb-0">Filter Items</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="itemSelect" class="form-label">Select Item</label>
+                        <select class="form-select" id="itemSelect">
+                            <option value="">Select an item</option>
+                            <!-- Will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="categoryFilter" class="form-label">Filter by Category</label>
+                        <select class="form-select" id="categoryFilter">
+                            <option value="">All Categories</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4" id="analysisResults" style="display: none;">
+            <div class="card-header gradient-expense text-white">
+                <h5 class="mb-0">Analysis Results</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Max Price</h6>
+                                <p class="dashboard-stat" id="maxPrice">-</p>
+                                <small class="text-muted" id="maxPriceDate">-</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Min Price</h6>
+                                <p class="dashboard-stat" id="minPrice">-</p>
+                                <small class="text-muted" id="minPriceDate">-</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Max Unit Price</h6>
+                                <p class="dashboard-stat" id="maxUnitPrice">-</p>
+                                <small class="text-muted" id="maxUnitPriceDate">-</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Min Unit Price</h6>
+                                <p class="dashboard-stat" id="minUnitPrice">-</p>
+                                <small class="text-muted" id="minUnitPriceDate">-</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Total Spent</h6>
+                                <p class="dashboard-stat" id="totalSpent">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Avg Monthly</h6>
+                                <p class="dashboard-stat" id="avgMonthly">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Total Quantity</h6>
+                                <p class="dashboard-stat" id="totalQuantity">-</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Price Trend</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container" style="height: 300px;">
+                                    <canvas id="priceTrendChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Inflation Analysis</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container" style="height: 300px;">
+                                    <canvas id="inflationChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Include Select2 CSS and JS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(amount);
+}
+
+window.loadItemAnalysisData = function(queryString = '') {
+    const itemName = $('#itemSelect').val().trim();
+    if (!itemName) {
+        $('#analysisResults').hide();
+        return;
+    }
+
+    $.get(`/expense/api/item_analysis/${encodeURIComponent(itemName)}?${queryString}`, function(data) {
+        if (data.status === 'error') {
+            console.error('API Error:', data.message);
+            $('#analysisResults').hide();
+            alert(data.message || 'No data found for the selected item.');
+            return;
+        }
+
+        $('#maxPrice').text(data.max_price?.amount != null ? formatCurrency(data.max_price.amount) : '-');
+        $('#maxPriceDate').text(data.max_price?.date ? new Date(data.max_price.date).toLocaleDateString() : '-');
+        $('#minPrice').text(data.min_price?.amount != null ? formatCurrency(data.min_price.amount) : '-');
+        $('#minPriceDate').text(data.min_price?.date ? new Date(data.min_price.date).toLocaleDateString() : '-');
+        $('#maxUnitPrice').text(data.max_unit_price?.amount != null ? formatCurrency(data.max_unit_price.amount) : '-');
+        $('#maxUnitPriceDate').text(data.max_unit_price?.date ? new Date(data.max_unit_price.date).toLocaleDateString() : '-');
+        $('#minUnitPrice').text(data.min_unit_price?.amount != null ? formatCurrency(data.min_unit_price.amount) : '-');
+        $('#minUnitPriceDate').text(data.min_unit_price?.date ? new Date(data.min_unit_price.date).toLocaleDateString() : '-');
+        $('#totalSpent').text(data.total_spent != null ? formatCurrency(data.total_spent) : '-');
+        $('#avgMonthly').text(data.avg_monthly != null ? formatCurrency(data.avg_monthly) : '-');
+        $('#totalQuantity').text(data.total_quantity != null ? data.total_quantity.toFixed(2) : '0.00');
+
+        updatePriceTrendChart(data.price_trend || []);
+        updateInflationChart(data.inflation || []);
+
+        $('#analysisResults').show();
+    }).fail(function(jqXHR, textStatus, errorThrown) {
+        console.error("Error loading item analysis:", textStatus, errorThrown);
+        $('#analysisResults').hide();
+        alert('Failed to load analysis data. Please try again.');
+    });
+};
+
+$(document).ready(function() {
+    // Initialize Select2 for searchable dropdown
+    $('#itemSelect').select2({
+        placeholder: 'Select an item',
+        allowClear: true,
+        width: '100%'
+    });
+
+    // Load items when category filter changes
+    $('#categoryFilter').change(function() {
+        const categoryId = $(this).val();
+        $.get(`/expense/api/items?category_id=${categoryId}`, function(data) {
+            const itemSelect = $('#itemSelect');
+            itemSelect.empty().append('<option value="">Select an item</option>');
+            data.items.forEach(item => {
+                itemSelect.append(`<option value="${item}">${item}</option>`);
+            });
+            itemSelect.val('').trigger('change'); // Clear selection
+        }).fail(function(jqXHR, textStatus, errorThrown) {
+            console.error("Error loading items:", textStatus, errorThrown);
+            alert('Failed to load items. Please try again.');
+        });
+    });
+
+    // Load analysis when item is selected
+    $('#itemSelect').change(function() {
+        const queryString = new URLSearchParams({
+            start_date: $('#start_date').val() || '',
+            end_date: $('#end_date').val() || ''
+        }).toString();
+        window.loadItemAnalysisData(queryString);
+    });
+
+    // Initial load of all items
+    $('#categoryFilter').trigger('change');
+});
+
+function updatePriceTrendChart(data) {
+    const labels = data.map(item => new Date(item.date).toLocaleDateString());
+    const amounts = data.map(item => item.amount);
+    const ctx = document.getElementById('priceTrendChart').getContext('2d');
+    if (window.priceTrendChart && typeof window.priceTrendChart.destroy === 'function') {
+        window.priceTrendChart.destroy();
+    }
+
+    window.priceTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Price',
+                data: amounts,
+                borderColor: 'rgba(75, 192, 192, 1)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Price Trend Over Time'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    ticks: {
+                        callback: function(value) {
+                            return formatCurrency(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateInflationChart(data) {
+    const labels = data.map(item => item.period);
+    const values = data.map(item => item.inflation);
+    const ctx = document.getElementById('inflationChart').getContext('2d');
+    if (window.inflationChart && typeof window.inflationChart.destroy === 'function') {
+        window.inflationChart.destroy();
+    }
+
+    window.inflationChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Inflation Rate (%)',
+                data: values,
+                backgroundColor: values.map(v =>
+                    v > 0 ? 'rgba(255, 99, 132, 0.7)' : 'rgba(54, 162, 235, 0.7)'
+                ),
+                borderColor: values.map(v =>
+                    v > 0 ? 'rgba(255, 99, 132, 1)' : 'rgba(54, 162, 235, 1)'
+                ),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Inflation Analysis'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

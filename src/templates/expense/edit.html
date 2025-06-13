@@ -1,0 +1,106 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script>{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <h1 class="mb-4">Edit Expense</h1>
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Expense Details</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('expense.edit', id=expense.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Amount</label>
+                        <input type="number" step="0.01" class="form-control" id="amount" name="amount" value="{{ expense.amount }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Date</label>
+                        <input type="date" class="form-control" id="date" name="date" value="{{ expense.date.strftime('%Y-%m-%d') }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="category_id" class="form-label">Category</label>
+                        <select class="form-select" id="category_id" name="category_id" required>
+                            <option value="" disabled>Select a category</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}" {% if category.id == expense.category_id %}selected{% endif %}>{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="item" class="form-label">Item Name</label>
+                        <input type="text" class="form-control" id="item" name="item" value="{{ expense.item or '' }}">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="quantity" class="form-label">Quantity/Weight</label>
+                            <input type="number" step="0.01" class="form-control" id="quantity" name="quantity" value="{{ expense.quantity or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="unit" class="form-label">Unit</label>
+                            <select class="form-select" id="unit" name="unit">
+                                <option value="">Select unit (optional)</option>
+                                <option value="pieces" {% if expense.unit == 'pieces' %}selected{% endif %}>Pieces</option>
+                                <option value="kg" {% if expense.unit == 'kg' %}selected{% endif %}>Kilograms (kg)</option>
+                                <option value="g" {% if expense.unit == 'g' %}selected{% endif %}>Grams (g)</option>
+                                <option value="lb" {% if expense.unit == 'lb' %}selected{% endif %}>Pounds (lb)</option>
+                                <option value="oz" {% if expense.unit == 'oz' %}selected{% endif %}>Ounces (oz)</option>
+                                <option value="l" {% if expense.unit == 'l' %}selected{% endif %}>Liters (l)</option>
+                                <option value="ml" {% if expense.unit == 'ml' %}selected{% endif %}>Milliliters (ml)</option>
+                                <option value="other" {% if expense.unit == 'other' %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="description" name="description" rows="3">{{ expense.description or '' }}</textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update Expense</button>
+                    <a href="{{ url_for('expense.index') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

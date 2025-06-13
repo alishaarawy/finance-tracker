@@ -1,0 +1,228 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4 text-center text-primary animate__animated animate__fadeIn">Finance Tracker Dashboard</h1>
+    <div class="row mb-5 g-4">
+        <div class="col-md-4">
+            <div class="card stat-card shadow-sm border-0 animate__animated animate__zoomIn gradient-savings">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-piggy-bank"></i> Total Savings</h5>
+                    <p class="dashboard-stat text-white fw-bold fs-4" id="totalSavings">{{ ((((total_income - total_expenses) - (total_investment | default(0))) + (investment_value |default(0))))| format_currency }}</p>
+                    <p class="dashboard-label text-white-50">Current Period</p>
+                    <div class="spinner-border text-white d-none" id="totalSavingsSpinner" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card shadow-sm border-0 animate__animated animate__zoomIn gradient-income">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-money-bill-wave"></i> Total Income</h5>
+                    <p class="dashboard-stat text-white fw-bold fs-4" id="totalIncome">{{ total_income | format_currency }}</p>
+                    <p class="dashboard-label text-white-50">Current Period</p>
+                    <div class="spinner-border text-white d-none" id="totalIncomeSpinner" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card shadow-sm border-0 animate__animated animate__zoomIn gradient-expense" style="animation-delay: 0.2s;">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-shopping-cart"></i> Total Expenses</h5>
+                    <p class="dashboard-stat text-white fw-bold fs-4" id="totalExpenses">{{ total_expenses | format_currency }}</p>
+                    <p class="dashboard-label text-white-50">Current Period</p>
+                    <div class="spinner-border text-white d-none" id="totalExpensesSpinner" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card shadow-sm border-0 animate__animated animate__zoomIn gradient-balance" style="animation-delay: 0.4s;">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-balance-scale"></i> Net Balance</h5>
+                    <p class="dashboard-stat fw-bold fs-4 text-white" id="netBalance">{{ ((total_income - total_expenses) - (total_investment | default(0))) | format_currency }}</p>
+                    <p class="dashboard-label text-white-50">Current Period</p>
+                    <div class="spinner-border text-white d-none" id="netBalanceSpinner" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card shadow-sm border-0 animate__animated animate__zoomIn gradient-investment-total" style="animation-delay: 0.3s;">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-money-bill-trend-up"></i> Purchase value of Investment</h5>
+                    <p class="dashboard-stat text-white fw-bold fs-4" id="totalInvestment">{{ total_investment | default(0) | format_currency }}</p>
+                    <p class="dashboard-label text-white-50">Current Period</p>
+                    <div class="spinner-border text-white d-none" id="totalInvestmentSpinner" role="status">
+                         <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card shadow-sm border-0 animate__animated animate__zoomIn gradient-exchange">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-exchange-alt"></i> Exchange Rate (EGP/USD)</h5>
+                    <p class="dashboard-stat text-white fw-bold fs-4" id="exchangeRate">{{ latest_exchange_rate | format_currency }}</p>
+                    <p class="dashboard-label text-white-50">Latest</p>
+                    <div class="spinner-border text-white d-none" id="exchangeRateSpinner" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card shadow-sm border-0 animate__animated animate__zoomIn gradient-gold" style="animation-delay: 0.2s;">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-coins"></i> Gold Price (24K, per gram)</h5>
+                    <p class="dashboard-stat text-white fw-bold fs-4" id="goldPrice">{{ latest_gold_price | format_currency }}</p>
+                    <p class="dashboard-label text-white-50">Latest</p>
+                    <div class="spinner-border text-white d-none" id="goldPriceSpinner" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card shadow-sm border-0 animate__animated animate__zoomIn gradient-investment" style="animation-delay: 0.4s;">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-chart-line"></i> Current Investment Value</h5>
+                    <p class="dashboard-stat text-white fw-bold fs-4" id="investmentValue">-</p>
+                    <p class="dashboard-label text-white-50">Current</p>
+                    <div class="spinner-border text-white d-none" id="investmentValueSpinner" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4 g-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0 animate__animated animate__fadeIn">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-chart-pie"></i> Portfolio Breakdown</h5>
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <p class="dashboard-label">Cash (% of Total Savings)</p>
+                            <p class="dashboard-stat fw-bold fs-4" id="cashPercentage">-</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="dashboard-label">Investments (% of Total Savings)</p>
+                            <p class="dashboard-stat fw-bold fs-4" id="investmentPercentage">-</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="dashboard-label">Investment Return (%)</p>
+                            <p class="dashboard-stat fw-bold fs-4" id="investmentReturn">-</p>
+                        </div>
+                    </div>
+                    <hr>
+                    <h6 class="card-subtitle mb-2 text-muted">Investment Composition</h6>
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <p class="dashboard-label">Gold (% of Investments)</p>
+                            <p class="dashboard-stat fw-bold fs-4" id="goldPercentage">-</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="dashboard-label">Stocks (% of Investments)</p>
+                            <p class="dashboard-stat fw-bold fs-4" id="stockPercentage">-</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="dashboard-label">Mutual Funds (% of Investments)</p>
+                            <p class="dashboard-stat fw-bold fs-4" id="fundPercentage">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+    .gradient-savings { background: linear-gradient(135deg, #28a745, #71ce88); }
+    .gradient-investment { background: linear-gradient(135deg, #17a2b8, #5bc0de); }
+    .gradient-investment-total { background: linear-gradient(135deg, #6f42c1, #9b71dc); }
+</style>
+<script>
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(value);
+    }
+
+    function formatPercentage(value) {
+        return value ? `${value.toFixed(2)}%` : 'N/A';
+    }
+
+    function loadData(queryString = '') {
+        const stats = ['totalSavings', 'totalIncome',, 'totalInvestment', 'totalExpenses', 'netBalance', 'exchangeRate', 'goldPrice', 'investmentValue', 'cashPercentage', 'investmentPercentage', 'investmentReturn', 'goldPercentage', 'stockPercentage', 'fundPercentage'];
+        stats.forEach(id => {
+            const element = document.getElementById(id);
+            const spinner = document.getElementById(`${id}Spinner`);
+            if (element && spinner) {
+                spinner.classList.remove('d-none');
+                element.classList.add('opacity-50');
+            }
+        });
+
+        fetch(`/api/dashboard?${queryString}`)
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                return response.json();
+            })
+            .then(data => {
+                const Savings = (data.total_income || 0) - (data.total_expenses || 0);
+                
+                const  netBalance= Savings - (data.total_investment || 0);
+                const totalSavings = netBalance + (data.investment_value || 0);
+
+                document.getElementById('totalSavings').textContent = formatCurrency(totalSavings);
+                document.getElementById('totalInvestment').textContent = formatCurrency(data.total_investment);
+                document.getElementById('totalIncome').textContent = formatCurrency(data.total_income || 0);
+                document.getElementById('totalExpenses').textContent = formatCurrency(data.total_expenses || 0);
+                document.getElementById('netBalance').textContent = formatCurrency(netBalance);
+                document.getElementById('netBalance').className = `dashboard-stat fw-bold fs-4 text-white`;
+                document.getElementById('exchangeRate').textContent = formatCurrency(data.latest_exchange_rate || 0);
+                document.getElementById('goldPrice').textContent = formatCurrency(data.latest_gold_price || 0);
+                document.getElementById('investmentValue').textContent = formatCurrency(data.investment_value || 0);
+                document.getElementById('cashPercentage').textContent = formatPercentage(data.cash_percentage || 0);
+                document.getElementById('investmentPercentage').textContent = formatPercentage(data.investment_percentage || 0);
+                document.getElementById('investmentReturn').textContent = formatPercentage(data.investment_return || 0);
+                document.getElementById('goldPercentage').textContent = formatPercentage(data.gold_percentage || 0);
+                document.getElementById('stockPercentage').textContent = formatPercentage(data.stock_percentage || 0);
+                document.getElementById('fundPercentage').textContent = formatPercentage(data.fund_percentage || 0);
+
+                stats.forEach(id => {
+                    const element = document.getElementById(id);
+                    const spinner = document.getElementById(`${id}Spinner`);
+                    if (element && spinner) {
+                        spinner.classList.add('d-none');
+                        element.classList.remove('opacity-50');
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error loading dashboard data:', error);
+                stats.forEach(id => {
+                    const element = document.getElementById(id);
+                    const spinner = document.getElementById(`${id}Spinner`);
+                    if (element && spinner) {
+                        element.textContent = 'Error';
+                        spinner.classList.add('d-none');
+                        element.classList.remove('opacity-50');
+                    }
+                });
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        window.loadData = loadData; // Expose for filter.js
+        loadData(); // Initial load
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,185 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">All Income Records</h1>
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Income History</h5>
+                <div>
+                    <button id="deleteSelected" class="btn btn-danger btn-sm" disabled>Delete Selected</button>
+                    <a href="{{ url_for('income.add') }}" class="btn btn-light btn-sm">Add New Income</a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="incomeTable">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAll"></th>
+                                <th>Date</th>
+                                <th>Source</th>
+                                <th>Amount</th>
+                                <th>Description</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="6" class="text-center">Loading data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }} <!-- This includes scripts from layout.html -->
+<script>
+    // Remove the duplicate csrfToken declaration since it's already in layout.html
+    const csrfToken = "{{ csrf_token() }}";
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(value);
+    }
+
+    function loadIncomeData(queryString = '') {
+        fetch(`/income/api/list?${queryString}`)
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                return response.json();
+            })
+            .then(data => {
+                updateIncomeTable(data);
+            })
+            .catch(error => {
+                console.error('Error loading income data:', error);
+                $('#incomeTable tbody').html(
+                    `<tr><td colspan="6" class="text-center text-danger">Error loading data: ${error.message}</td></tr>`
+                );
+            });
+    }
+
+    function updateIncomeTable(data) {
+        if ($.fn.DataTable.isDataTable('#incomeTable')) {
+            $('#incomeTable').DataTable().destroy();
+        }
+
+        $('#incomeTable').DataTable({
+            data: data || [],
+            order: [[1, 'desc']],
+            columns: [
+                {
+                    data: null,
+                    render: function(data, type, row) {
+                        return `<input type="checkbox" class="select-item" data-id="${row.id}">`;
+                    },
+                    orderable: false
+                },
+                { data: 'date' },
+                { data: 'source' },
+                { data: 'amount', render: d => formatCurrency(d) },
+                { data: 'description', render: d => d || '-' },
+                {
+                    data: null,
+                    render: function(row) {
+                        return `
+                            <a href="/income/edit/${row.id}" class="btn btn-sm btn-primary">Edit</a>
+                            <button onclick="deleteIncome(${row.id})" class="btn btn-sm btn-danger">Delete</button>
+                        `;
+                    }
+                }
+            ],
+            language: {
+                emptyTable: 'No income data available.'
+            },
+            pageLength: 10,
+            searching: true,
+            paging: true,
+            info: true
+        });
+
+        // Handle select all checkbox
+        $('#selectAll').on('change', function() {
+            $('.select-item').prop('checked', this.checked);
+            toggleDeleteButton();
+        });
+
+        // Handle individual checkboxes
+        $(document).on('change', '.select-item', function() {
+            if (!this.checked) {
+                $('#selectAll').prop('checked', false);
+            } else if ($('.select-item:checked').length === $('.select-item').length) {
+                $('#selectAll').prop('checked', true);
+            }
+            toggleDeleteButton();
+        });
+    }
+
+    function toggleDeleteButton() {
+        const selectedCount = $('.select-item:checked').length;
+        $('#deleteSelected').prop('disabled', selectedCount === 0);
+    }
+
+    function deleteIncome(id) {
+    if (confirm('Are you sure you want to delete this income entry?')) {
+        fetch(`/income/delete/${id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                loadIncomeData();
+                alert(data.message);
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting income:', error);
+            alert('Error deleting income');
+        });
+    }
+}
+
+    function deleteIncome(id) {
+    if (confirm('Are you sure you want to delete this income entry?')) {
+        fetch(`/income/delete/${id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',  // Add this header
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                loadIncomeData();
+                alert(data.message);
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting income:', error);
+            alert('Error deleting income');
+        });
+    }
+}
+
+
+    $(document).ready(function() {
+        window.loadIncomeData = loadIncomeData; // Expose for filter.js
+        loadIncomeData(); // Initial load
+
+        $('#deleteSelected').on('click', deleteSelectedIncomes);
+    });
+</script>
+{% endblock %}

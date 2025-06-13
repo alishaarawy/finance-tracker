@@ -1,0 +1,420 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<!-- Existing HTML content remains unchanged -->
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Savings Tracking</h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Savings Summary</h5>
+                <div>
+                    <a href="/savings/goals/add" class="btn btn-light btn-sm me-2">Add New Goal</a>
+                    <a href="/savings/add" class="btn btn-light btn-sm">Add Saving</a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card stat-card bg-light">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Total Saved</h5>
+                                <p class="dashboard-stat" id="totalSaved">-</p>
+                                <p class="dashboard-label">Current Period</p>
+                            </div>
+                        </div>
+                        <div class="card stat-card bg-light mt-3">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Average Daily Savings</h5>
+                                <p class="dashboard-stat" id="averageDaily">-</p>
+                                <p class="dashboard-label">Current Period</p>
+                            </div>
+                        </div>
+                        <div class="card stat-card bg-light mt-3">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Average Monthly Savings</h5>
+                                <p class="dashboard-stat" id="averageMonthly">-</p>
+                                <p class="dashboard-label">Current Period</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Monthly Savings Trend</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="savingsMonthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Yearly Savings Trend</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="savingsYearlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Savings Goals Progress</h5>
+                <a href="/savings/goals" class="btn btn-light btn-sm">Manage Goals</a>
+            </div>
+            <div class="card-body" id="savingsGoalsContainer">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Recent Savings</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Goal</th>
+                                <th>Amount</th>
+                                <th>Description</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="savingsTable">
+                            <tr>
+                                <td colspan="5" class="text-center">Loading data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/filter.js') }}"></script>
+<script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+<script>
+    let savingsMonthlyChart, savingsYearlyChart;
+
+    window.loadData = function(queryString = '') {
+        const dateParams = getDateRangeParams();
+        const urlParams = new URLSearchParams(queryString || {
+            start_date: dateParams.start_date,
+            end_date: dateParams.end_date
+        });
+
+        // Load savings data
+        fetch(`/savings/api/savings?${urlParams.toString()}`)
+            .then(response => response.json())
+            .then(data => updateSavingsTable(data))
+            .catch(error => {
+                console.error('Error loading savings data:', error);
+                document.getElementById('savingsTable').innerHTML = 
+                    `<tr><td colspan="5" class="text-center text-danger">Error loading data</td></tr>`;
+            });
+
+        // Load savings goals
+fetch(`/savings/api/goals?${urlParams.toString()}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Error loading savings goals:', data.error);
+            document.getElementById('savingsGoalsContainer').innerHTML = 
+                `<div class="alert alert-danger">Error loading savings goals: ${data.error}</div>`;
+        } else {
+            updateSavingsGoals(data.goals || []);  // Use data.goals instead of data
+        }
+    })
+    .catch(error => {
+        console.error('Error loading savings goals:', error);
+        document.getElementById('savingsGoalsContainer').innerHTML = 
+            `<div class="alert alert-danger">Error loading savings goals</div>`;
+    });
+
+        // Load savings summary
+        fetch(`/savings/api/summary?${urlParams.toString()}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                updateSavingsSummary(data);
+                updateSavingsByGoalChart(data.by_goal || {});
+                updateSavingsMonthlyChart(data.by_month || {});
+                updateSavingsYearlyChart(data.by_year || {});
+            })
+            .catch(error => {
+                console.error('Error loading savings summary:', error);
+                document.getElementById('totalSaved').textContent = 'Error';
+                document.getElementById('averageDaily').textContent = 'Error';
+                document.getElementById('averageMonthly').textContent = 'Error';
+            });
+    };
+
+    function updateSavingsByGoalChart(savingsByGoal) {
+        if (!savingsByGoal || Object.keys(savingsByGoal).length === 0) {
+            if (savingsByGoalChart) {
+                savingsByGoalChart.data.labels = [];
+                savingsByGoalChart.data.datasets[0].data = [];
+                savingsByGoalChart.update();
+            }
+            return;
+        }
+
+        const labels = Object.keys(savingsByGoal);
+        const data = Object.values(savingsByGoal);
+        const colors = generateRandomColors(labels.length);
+
+        const datasets = [{
+            data: data,
+            backgroundColor: colors,
+            borderWidth: 1
+        }];
+
+
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        window.loadData(); // Initial load
+    });
+
+    function updateSavingsTable(data) {
+        const tableBody = document.getElementById('savingsTable');
+        
+        if (!data || data.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="5" class="text-center">No savings data available</td></tr>`;
+            return;
+        }
+        
+        let html = '';
+        
+        data.forEach(saving => {
+            html += `
+                <tr>
+                    <td>${saving.date}</td>
+                    <td>${saving.goal_name}</td>
+                    <td>${formatCurrency(saving.amount)}</td>
+                    <td>${saving.description || '-'}</td>
+                    <td>
+                        <a href="/savings/edit/${saving.id}" class="btn btn-sm btn-primary">Edit</a>
+                        <button onclick="deleteSaving(${saving.id})" class="btn btn-sm btn-danger">Delete</button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tableBody.innerHTML = html;
+    }
+
+    function updateSavingsGoals(goals) {
+    const container = document.getElementById('savingsGoalsContainer');
+    
+    if (!goals || goals.length === 0) {
+        container.innerHTML = '<p class="text-center">No savings goals available</p>';
+        return;
+    }
+    
+    let html = '';
+    
+    goals.forEach(goal => {
+        const progressClass = goal.progress >= 100 ? 'bg-success' : 'bg-primary';
+        const remainingDays = goal.target_date ? 
+            Math.max(0, Math.floor((new Date(goal.target_date) - new Date()) / (1000 * 60 * 60 * 24))) : 
+            null;
+        
+        html += `
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6>${goal.name}</h6>
+                    <span>${formatCurrency(goal.total_saved)} of ${formatCurrency(goal.target_amount)}</span>
+                </div>
+                <div class="progress mb-2">
+                    <div class="progress-bar ${progressClass}" role="progressbar" style="width: ${Math.min(100, goal.progress)}%" 
+                        aria-valuenow="${goal.progress}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <small>${goal.progress.toFixed(1)}% complete</small>
+                    <small>Monthly Target: ${formatCurrency(goal.monthly_savings)}</small>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <small>Duration: ${goal.duration} months</small>
+                    ${remainingDays !== null ? 
+                        `<small>${remainingDays} days remaining until ${new Date(goal.target_date).toLocaleDateString()}</small>` : 
+                        ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+    function updateSavingsSummary(data) {
+        document.getElementById('totalSaved').textContent = formatCurrency(data.total);
+        document.getElementById('averageDaily').textContent = formatCurrency(data.average_daily);
+        document.getElementById('averageMonthly').textContent = formatCurrency(data.average_monthly);
+    }
+
+    function updateSavingsByGoalChart(savingsByGoal) {
+        const labels = Object.keys(savingsByGoal);
+        const data = Object.values(savingsByGoal);
+        const colors = generateRandomColors(labels.length);
+        
+        const datasets = [{
+            data: data,
+            backgroundColor: colors,
+            borderWidth: 1
+        }];
+        
+      
+    }
+
+    function updateSavingsMonthlyChart(savingsByMonth) {
+        const sortedMonths = Object.keys(savingsByMonth).sort();
+        const formattedLabels = sortedMonths.map(month => {
+            const [year, monthNum] = month.split('-');
+            return new Date(year, monthNum - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        });
+        const monthlyData = sortedMonths.map(month => savingsByMonth[month]);
+        
+        const datasets = [
+            {
+                label: 'Monthly Savings',
+                data: monthlyData,
+                backgroundColor: 'rgba(40, 167, 69, 0.2)',
+                borderColor: 'rgba(40, 167, 69, 1)',
+                borderWidth: 2
+            }
+        ];
+        
+        if (savingsMonthlyChart) {
+            savingsMonthlyChart.data.labels = formattedLabels;
+            savingsMonthlyChart.data.datasets[0].data = monthlyData;
+            savingsMonthlyChart.update();
+        } else {
+            savingsMonthlyChart = createChart('savingsMonthlyChart', 'bar', formattedLabels, datasets, {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return formatCurrency(value).replace('.00', '');
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    function updateSavingsYearlyChart(savingsByYear) {
+        const sortedYears = Object.keys(savingsByYear).sort();
+        const yearlyData = sortedYears.map(year => savingsByYear[year]);
+        
+        const datasets = [
+            {
+                label: 'Yearly Savings',
+                data: yearlyData,
+                backgroundColor: 'rgba(40, 167, 69, 0.2)',
+                borderColor: 'rgba(40, 167, 69, 1)',
+                borderWidth: 2
+            }
+        ];
+        
+        if (savingsYearlyChart) {
+            savingsYearlyChart.data.labels = sortedYears;
+            savingsYearlyChart.data.datasets[0].data = yearlyData;
+            savingsYearlyChart.update();
+        } else {
+            savingsYearlyChart = createChart('savingsYearlyChart', 'bar', sortedYears, datasets, {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return formatCurrency(value).replace('.00', '');
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    function deleteSaving(id) {
+        if (confirm('Are you sure you want to delete this saving entry?')) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/savings/delete/${id}`;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EGP' }).format(amount);
+    }
+
+    function generateRandomColors(count) {
+        const colors = [];
+        for (let i = 0; i < count; i++) {
+            colors.push(`hsl(${Math.random() * 360}, 70%, 50%)`);
+        }
+        return colors;
+    }
+
+    function createChart(elementId, type, labels, datasets, options) {
+        return new Chart(document.getElementById(elementId).getContext('2d'), {
+            type: type,
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: options
+        });
+    }
+</script>
+{% endblock %}

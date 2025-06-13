@@ -1,0 +1,537 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Income Tracking</h1>
+    </div>
+</div>
+
+<!-- Income Summary -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Income Summary</h5>
+                <a href="{{ url_for('income.add') }}" class="btn btn-light btn-sm">Add New Income</a>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Total Income</h6>
+                                <p class="dashboard-stat" id="totalIncome">-</p>
+                                <p class="dashboard-label text-black-50">Current Period</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Max Income</h6>
+                                <p class="dashboard-stat" id="maxIncome">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Min Income</h6>
+                                <p class="dashboard-stat" id="minIncome">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Average Monthly Income</h6>
+                                <p class="dashboard-stat" id="avgIncome">-</p>
+                            </div>
+                        </div>
+                    </div>
+                   <div class="col-md-2">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Avg Daily Income</h6>
+                                <p class="dashboard-stat" id="avgDailyIncome">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">YoY Growth</h6>
+                                <p class="dashboard-stat" id="yoyGrowth">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="card stat-card bg-light h-100">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">MoM Growth</h6>
+                                <p class="dashboard-stat" id="momGrowth">-</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Income by Source -->
+<div class="col-md-6">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Income by Source</h5>
+            <button class="btn btn-light btn-sm" onclick="toggleTable('incomeBySourceTable')">View Data</button>
+        </div>
+        <div class="card-body">
+            <div class="chart-container" style="height: 300px;">
+                <canvas id="incomeBySourceChart"></canvas>
+            </div>
+            <div id="incomeBySourceTable" class="table-responsive" style="display: none;">
+                <table class="table table-striped table-sm">
+                    <thead>
+                        <tr><th>Source</th><th>Amount</th><th>Percentage</th></tr>
+                    </thead>
+                    <tbody id="incomeBySourceTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Monthly Income Trend -->
+<div class="col-md-6">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Monthly Income Trend</h5>
+            <button class="btn btn-light btn-sm" onclick="toggleTable('incomeMonthlyTable')">View Data</button>
+        </div>
+        <div class="card-body">
+            <div class="chart-container" style="height: 300px;">
+                <canvas id="incomeMonthlyChart"></canvas>
+            </div>
+            <div id="incomeMonthlyTable" class="table-responsive" style="display: none;">
+                <table class="table table-striped table-sm">
+                    <thead>
+                        <tr><th>Month</th><th>Amount</th></tr>
+                    </thead>
+                    <tbody id="incomeMonthlyTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Yearly Income Trend -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Yearly Income Trend</h5>
+                <button class="btn btn-light btn-sm" onclick="toggleTable('incomeYearlyTable')">View Data</button>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="incomeYearlyChart"></canvas>
+                </div>
+                <div id="incomeYearlyTable" class="table-responsive" style="display: none;">
+                    <table class="table table-striped table-sm">
+                        <thead>
+                            <tr><th>Year</th><th>Amount</th></tr>
+                        </thead>
+                        <tbody id="incomeYearlyTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Income History -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Recent Income</h5>
+                <a href="{{ url_for('income.index') }}?view_all=true" class="btn btn-light btn-sm">View All</a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm" id="incomeTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Source</th>
+                                <th>Amount</th>
+                                <th>Description</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="5" class="text-center">Loading data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.min.js"></script>
+<script>
+    const csrfToken = "{{ csrf_token() }}";
+
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP' }).format(value);
+    }
+
+    function formatPercentage(value) {
+        const formatted = `${Number(value || 0).toFixed(2)}%`;
+        return value > 0 ? `<span style="color: green;">${formatted} <i class="bi bi-arrow-up"></i></span>` :
+               value < 0 ? `<span style="color: red;">${formatted} <i class="bi bi-arrow-down"></i></span>` : formatted;
+    }
+
+    function generateRandomColors(count) {
+        const colors = [];
+        for (let i = 0; i < count; i++) {
+            const r = Math.floor(Math.random() * 255);
+            const g = Math.floor(Math.random() * 255);
+            const b = Math.floor(Math.random() * 255);
+            colors.push(`rgba(${r}, ${g}, ${b}, 0.6)`);
+        }
+        return colors;
+    }
+
+    function createChart(canvasId, type, labels, datasets, options) {
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        return new Chart(ctx, {
+            type: type,
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: options
+        });
+    }
+
+    let incomeBySourceChart,incomeYearlyChart, incomeMonthlyChart;
+    function updateIncomeYearlyChart(yearlyData) {
+    const sortedYears = Object.keys(yearlyData || {}).sort();
+    const data = sortedYears.map(year => yearlyData[year]);
+    // Update table
+    const tableBody = $('#incomeYearlyTableBody');
+    tableBody.empty();
+    sortedYears.forEach((year, i) => {
+        tableBody.append(`
+            <tr>
+               
+
+ <td>${year}</td>
+                <td>${formatCurrency(data[i])}</td>
+            </tr>
+        `);
+    });
+    if (incomeYearlyChart) {
+        incomeYearlyChart.data.labels = sortedYears;
+        incomeYearlyChart.data.datasets[0].data = data;
+        incomeYearlyChart.update();
+    } else {
+        incomeYearlyChart = createChart('incomeYearlyChart', 'bar', sortedYears, [{
+            label: 'Yearly Income',
+            data: data,
+            backgroundColor: 'rgba(75, 192, 192, 0.6)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            borderWidth: 2
+        }], {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: value => formatCurrency(value).replace('.00', '')
+                    }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: 'Yearly Income Trend' }
+            }
+        });
+    }
+}
+    function loadData(queryString = '') {
+        fetch(`/income/api/summary?${queryString}`)
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            return response.json();
+        })
+        .then(data => {
+            updateIncomeSummary(data);
+            updateIncomeBySourceChart(data.by_source, data.total);
+            updateIncomeMonthlyChart(data.by_month);
+            updateIncomeYearlyChart(data.by_year); // New call
+        })
+        .catch(error => {
+            console.error('Error loading income summary:', error);
+            $('#totalIncome').text('Error loading data');
+        });
+        // Fetch income list
+        fetch(`/income/api/list?${queryString}`)
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                return response.json();
+            })
+            .then(data => {
+                updateIncomeTable(data.slice(0, 5)); // Limit to 5 records
+            })
+            .catch(error => {
+                console.error('Error loading income data:', error);
+                $('#incomeTable tbody').html(
+                    `<tr><td colspan="5" class="text-center text-danger">Error loading data: ${error.message}</td></tr>`
+                );
+            });
+
+        // Fetch summary
+        fetch(`/income/api/summary?${queryString}`)
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                return response.json();
+            })
+            .then(data => {
+                updateIncomeSummary(data);
+                updateIncomeBySourceChart(data.by_source, data.total);
+                updateIncomeMonthlyChart(data.by_month);
+            })
+            .catch(error => {
+                console.error('Error loading income summary:', error);
+                $('#totalIncome').text('Error loading data');
+            });
+    }
+
+    function updateIncomeTable(data) {
+        if ($.fn.DataTable.isDataTable('#incomeTable')) {
+            $('#incomeTable').DataTable().destroy();
+        }
+
+        $('#incomeTable').DataTable({
+            destroy: true,
+            data: data || [],
+            order: [[0, 'desc']],
+            columns: [
+                { data: 'date' },
+                { data: 'source' },
+                { data: 'amount', render: d => formatCurrency(d) },
+                { data: 'description', render: d => d || '-' },
+                {
+                    data: null,
+                    render: function(row) {
+                        return `
+                            <a href="/income/edit/${row.id}" class="btn btn-sm btn-primary">Edit</a>
+                            <button onclick="deleteIncome(${row.id})" class="btn btn-sm btn-danger">Delete</button>
+                        `;
+                    }
+                }
+            ],
+            language: {
+                emptyTable: 'No income data available.'
+            },
+            pageLength: 5,
+            lengthChange: false,
+            searching: false,
+            paging: false,
+            info: false
+        });
+    }
+
+    function updateIncomeSummary(data) {
+        // Total Income
+        $('#totalIncome').text(formatCurrency(data.total || 0));
+        $('#avgDailyIncome').text(formatCurrency(data.avg_daily || 0)); // New line
+
+        // Max Income
+        const maxAmount = data.max?.amount || 0;
+        const maxMonth = data.max?.month || 'N/A';
+        $('#maxIncome').html(`
+            ${formatCurrency(maxAmount)}<br>
+            <small class="text-muted">${maxMonth}</small>
+        `);
+
+        // Min Income
+        const minAmount = data.min?.amount || 0;
+        const minMonth = data.min?.month || 'N/A';
+        $('#minIncome').html(`
+            ${formatCurrency(minAmount)}<br>
+            <small class="text-muted">${minMonth}</small>
+        `);
+
+        // Average Income
+        $('#avgIncome').text(formatCurrency(data.average || 0));
+
+        // YoY Growth
+        $('#yoyGrowth').html(formatPercentage(data.yoy_growth ?? 0));
+
+        // MoM Growth
+        $('#momGrowth').html(formatPercentage(data.mom_growth ?? 0));
+    }
+
+    function toggleTable(tableId) {
+    const table = document.getElementById(tableId);
+    table.style.display = table.style.display === 'none' ? 'block' : 'none';
+}
+
+function updateIncomeBySourceChart(incomeBySource, totalIncome) {
+    const sources = Object.entries(incomeBySource || {})
+        .map(([source, amount]) => ({ source, amount, percentage: totalIncome ? (amount / totalIncome) * 100 : 0 }))
+        .sort((a, b) => b.percentage - a.percentage);
+    const labels = sources.map(s => s.source);
+    const data = sources.map(s => s.percentage);
+    const amounts = sources.map(s => s.amount);
+        // Update table
+    const tableBody = $('#incomeBySourceTableBody');
+    tableBody.empty();
+    sources.forEach(s => {
+        tableBody.append(`
+            <tr>
+                <td>${s.source}</td>
+                <td>${formatCurrency(s.amount)}</td>
+                <td>${s.percentage.toFixed(2)}%</td>
+            </tr>
+        `);
+    });
+        const colors = generateRandomColors(labels.length);
+
+        const datasets = [{
+            label: 'Percentage of Total Income',
+            data: data,
+            backgroundColor: colors,
+            borderColor: colors.map(c => c.replace('0.6', '1')),
+            borderWidth: 1,
+            amounts: amounts // Store amounts in dataset for tooltip access
+        }];
+
+        if (incomeBySourceChart) {
+            incomeBySourceChart.destroy();
+        }
+
+        incomeBySourceChart = createChart('incomeBySourceChart', 'bar', labels, datasets, {
+            indexAxis: 'y',
+            plugins: {
+                legend: { display: false },
+                title: {
+                    display: true,
+                    text: 'Income by Source (%)'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const percentage = context.raw.toFixed(2);
+                            const amount = context.dataset.amounts[context.dataIndex] || 0;
+                            return [
+                                `${context.label}: ${percentage}%`,
+                                `Amount: ${formatCurrency(amount)}`
+                            ];
+                        }
+                    }
+                },
+                datalabels: {
+                    anchor: 'end',
+                    align: 'end',
+                    formatter: value => `${value.toFixed(2)}%`,
+                    color: '#000',
+                    font: { weight: 'bold' }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: value => `${value}%`
+                    }
+                }
+            }
+        });
+    }
+
+    function updateIncomeMonthlyChart(incomeByMonth) {
+        const sortedMonths = Object.keys(incomeByMonth || {}).sort();
+        const formattedLabels = sortedMonths.map(month => {
+            const [year, monthNum] = month.split('-');
+            return new Date(year, monthNum - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        });
+        const monthlyData = sortedMonths.map(month => incomeByMonth[month]);
+        // Update table
+    const tableBody = $('#incomeMonthlyTableBody');
+    tableBody.empty();
+    sortedMonths.forEach((month, i) => {
+        tableBody.append(`
+            <tr>
+                <td>${formattedLabels[i]}</td>
+                <td>${formatCurrency(monthlyData[i])}</td>
+            </tr>
+        `);
+    });
+        const datasets = [{
+            label: 'Monthly Income',
+            data: monthlyData,
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            borderWidth: 2
+        }];
+
+        if (incomeMonthlyChart) {
+            incomeMonthlyChart.data.labels = formattedLabels;
+            incomeMonthlyChart.data.datasets[0].data = monthlyData;
+            incomeMonthlyChart.update();
+        } else {
+            incomeMonthlyChart = createChart('incomeMonthlyChart', 'bar', formattedLabels, datasets, {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: value => formatCurrency(value).replace('.00', '')
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: 'Monthly Income Trend' }
+                }
+            });
+        }
+    }
+
+    function deleteIncome(id) {
+        if (confirm('Are you sure you want to delete this income entry?')) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/income/delete/${id}`;
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = "{{ csrf_token() }}";
+            form.appendChild(csrfInput);
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'csrf_token';
+            input.value = csrfToken;
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    $(document).ready(function() {
+        window.loadData = loadData; // Expose for filter.js
+        loadData(); // Initial load
+
+        // Load Chart.js datalabels plugin
+        Chart.register(ChartDataLabels);
+    });
+</script>
+{% endblock %}
